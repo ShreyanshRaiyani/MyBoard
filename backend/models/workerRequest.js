@@ -27,17 +27,17 @@ const workRequestSchema = new mongoose.Schema(
       ref: "Hoarding",
       required: true,
     },
-    workType: {
-      type: String,
-      enum: ["Installation", "Maintenance", "Removal", "Replacement"],
-      required: true,
-    },
-    workDetails: {
-      title: { type: String, required: true },
-      description: { type: String },
-      specialInstructions: { type: String },
-      materialsRequired: [{ type: String }],
-    },
+    // workType: {
+    //   type: String,
+    //   enum: ["Installation", "Maintenance", "Removal", "Replacement"],
+    //   required: true,
+    // },
+    // workDetails: {
+    //   title: { type: String, required: true },
+    //   description: { type: String },
+    //   specialInstructions: { type: String },
+    //   materialsRequired: [{ type: String }],
+    // },
     scheduledDate: {
       startDate: { type: Date, required: true },
       endDate: { type: Date },
@@ -50,26 +50,19 @@ const workRequestSchema = new mongoose.Schema(
     },
     RequestStatus: {
       type: String,
-      enum: [
-        "Pending",
-        "WorkerApproved",
-        "WorkerRejected",
-        "InProgress",
-        "Completed",
-        "Cancelled",
-      ],
+      enum: ["Pending", "Accepted", "Rejected"],
       default: "Pending",
     },
     workerResponse: {
-      status: {
-        type: String,
-        enum: ["Pending", "Accepted", "Rejected"],
-        default: "Pending",
-      },
+      // status: {
+      //   type: String,
+      //   enum: ["Pending", "Accepted", "Rejected"],
+      //   default: "Pending",
+      // },
       responseDate: { type: Date },
-      remarks: { type: String },
+      // remarks: { type: String },
       rejectionReason: { type: String },
-      estimatedCompletionDate: { type: Date },
+      // estimatedCompletionDate: { type: Date },
     },
     payment: {
       workerFee: { type: Number, required: true },
@@ -98,8 +91,8 @@ const workRequestSchema = new mongoose.Schema(
       completionNotes: { type: String },
       beforeImages: [{ type: String }],
       afterImages: [{ type: String }],
-      workerSignature: { type: String },
-      bannerUserSignature: { type: String },
+      // workerSignature: { type: String },
+      // bannerUserSignature: { type: String },
     },
     rating: {
       ratingByBannerUser: {

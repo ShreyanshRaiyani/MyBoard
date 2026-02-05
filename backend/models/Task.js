@@ -31,20 +31,20 @@ const taskSchema = new mongoose.Schema(
       enum: ["Low", "Medium", "High", "Urgent"],
       default: "Medium",
     },
-    status: {
-      type: String,
-      enum: [
-        "Assigned",
-        "Accepted",
-        "Rejected",
-        "InProgress",
-        "OnHold",
-        "Completed",
-        "Verified",
-        "Cancelled",
-      ],
-      default: "Assigned",
-    },
+    // status: {
+    //   type: String,
+    //   enum: [
+    //     "Assigned",
+    //     "Accepted",
+    //     "Rejected",
+    //     "InProgress",
+    //     "OnHold",
+    //     "Completed",
+    //     "Verified",
+    //     "Cancelled",
+    //   ],
+    //   default: "Assigned",
+    // },
     estimatedDuration: {
       type: Number, // in hours
     },
@@ -59,22 +59,22 @@ const taskSchema = new mongoose.Schema(
         longitude: { type: Number },
       },
     },
-    materialsNeeded: [
-      {
-        materialName: { type: String },
-        quantity: { type: Number },
-        unit: { type: String },
-      },
-    ],
-    toolsRequired: [{ type: String }],
-    safetyRequirements: [{ type: String }],
-    checklistItems: [
-      {
-        item: { type: String },
-        completed: { type: Boolean, default: false },
-        completedDate: { type: Date },
-      },
-    ],
+    // materialsNeeded: [
+    //   {
+    //     materialName: { type: String },
+    //     quantity: { type: Number },
+    //     unit: { type: String },
+    //   },
+    // ],
+    // toolsRequired: [{ type: String }],
+    // safetyRequirements: [{ type: String }],
+    // checklistItems: [
+    //   {
+    //     item: { type: String },
+    //     completed: { type: Boolean, default: false },
+    //     completedDate: { type: Date },
+    //   },
+    // ],
     progress: {
       startTime: { type: Date },
       endTime: { type: Date },
@@ -82,18 +82,18 @@ const taskSchema = new mongoose.Schema(
       actualDuration: { type: Number }, // in hours
       progressPercentage: { type: Number, default: 0, min: 0, max: 100 },
     },
-    updates: [
-      {
-        updateText: { type: String },
-        images: [{ type: String }],
-        timestamp: { type: Date, default: Date.now },
-      },
-    ],
+    // updates: [
+    //   {
+    //     updateText: { type: String },
+    //     images: [{ type: String }],
+    //     timestamp: { type: Date, default: Date.now },
+    //   },
+    // ],
     completionDetails: {
       completedDate: { type: Date },
       completionNotes: { type: String },
       images: [{ type: String }],
-      signature: { type: String },
+      // signature: { type: String },
       verifiedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -126,15 +126,15 @@ const taskSchema = new mongoose.Schema(
 );
 
 // Calculate total expense
-taskSchema.pre("save", function (next) {
-  if (this.expenses && this.expenses.length > 0) {
-    this.totalExpense = this.expenses.reduce(
-      (total, expense) => total + (expense.amount || 0),
-      0
-    );
-  }
-  next();
-});
+// taskSchema.pre("save", function (next) {
+//   if (this.expenses && this.expenses.length > 0) {
+//     this.totalExpense = this.expenses.reduce(
+//       (total, expense) => total + (expense.amount || 0),
+//       0
+//     );
+//   }
+//   next();
+// });
 
 // Calculate actual duration
 taskSchema.pre("save", function (next) {
