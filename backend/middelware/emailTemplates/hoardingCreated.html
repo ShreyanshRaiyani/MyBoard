@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Membership Confirmation</title>
+
+  <!-- Import Google Font: Poppins -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* Global Reset and Base Styles */
+    body,
+    table,
+    td,
+    a {
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      font-family: 'Poppins', Arial, sans-serif;
+    }
+
+    table,
+    td {
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+
+    img {
+      -ms-interpolation-mode: bicubic;
+      border: 0;
+      height: auto;
+      line-height: 100%;
+      outline: none;
+      text-decoration: none;
+    }
+
+    a[x-apple-data-detectors] {
+      color: inherit !important;
+      text-decoration: none !important;
+      font-size: inherit !important;
+      font-family: inherit !important;
+      font-weight: inherit !important;
+      line-height: inherit !important;
+    }
+
+
+    .container-table {
+      border: 2px solid #5766A1;
+      padding: 20px;
+      background-color: #ffffff;
+    }
+
+    .main-content {
+      padding: 30px 20px;
+      text-align: center;
+    }
+
+    .logo-image,
+    .logo-small {
+      width: 146px !important;
+      max-width: 146px !important;
+      height: 43px !important;
+    }
+
+    .heading {
+      color: #333333;
+      font-family: 'Poppins', Arial, sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 36px;
+      margin: 0;
+      padding: 0;
+    }
+
+    .subtext {
+      color: #3F3F46;
+      font-family: 'Poppins', Arial, sans-serif;
+      font-size: 15px;
+      line-height: 24px;
+      margin: 15px 0 25px 0;
+      text-align: center;
+    }
+
+    .button {
+      display: block !important;
+      margin: 40px auto 20px auto;
+      width: 295px;
+      height: 41px;
+
+      background-color: #5766A1;
+      color: #ffffff;
+      font-family: 'Poppins', Arial, sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 8px;
+      text-decoration: none;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      line-height: 41px;
+      text-align: center;
+    }
+
+    .footer-link {
+      color: #5766A1;
+      font-family: 'Poppins', Arial, sans-serif;
+      font-size: 14px;
+      text-decoration: none;
+      padding: 0 8px;
+      white-space: nowrap;
+    }
+
+
+
+    .social-icon {
+      width: 24px;
+      height: 24px;
+      margin: 0 4px;
+    }
+  </style>
+</head>
+
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Poppins', Arial, sans-serif;">
+
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation" style="table-layout: fixed;">
+    <tr>
+      <td align="center" style="padding: 20px 10px;">
+
+        <table border="0" cellpadding="0" cellspacing="0" width="100%"
+          style="max-width: 600px; border: 1px solid #272E48; border-radius: 12px; overflow: hidden;"
+          class="container-table" role="presentation">
+
+          <tr>
+            <td align="center" class="main-content" style="padding-bottom: 0;">
+              <!-- Placeholder image used for Logo -->
+              <img src="{{emailImageUrl}}/gen/solar_logo.png" alt="SolarEstimate Logo" class="logo-image"
+                style="display: block; margin: 0 auto;" width="146" height="43">
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" class="main-content" style="padding-top: 20px;">
+
+              <!-- Heading with top margin applied -->
+              <p class="heading" style="color: #3F3F46; font-size: 28px; line-height: 36px; margin-top: 20px;">
+                Congratulations <span style="color: #5766A1;">{{partner.name}}</span>!
+                <!-- Color updated inline: #5766A1 -->
+              </p>
+
+              <!-- Sub-heading -->
+              <p class="subtext" style="margin-top: 10px; margin-bottom: 25px; color: #3F3F46;">
+                You Are Now A Member Of <strong style="color: #5766A1;">Order Management</strong>
+                <!-- Color updated inline: #5766A1 -->
+              </p>
+
+              <!-- Main body text with restricted width and updated color -->
+              <p class="subtext"
+                style="margin: 0 auto; text-align: center; line-height: 1.8; color: #3F3F46; font-size: 15px; max-width: 425px;">
+                We’re Delighted To Welcome You Onboard! Your<br />
+                Family Membership Is Now Active. You Can Start<br />
+                Exploring Your Dashboard And Access All Features <br />
+                Right Away.
+              </p>
+
+              <!-- Button (link styled) -->
+              <div style="width:100%; margin-bottom:25px;">
+                <a href="https://admin.solarestimate.in" target="_blank"
+                  style="background:#5766A1; color:#ffffff; display:inline-block; padding:10px 20px; border-radius:6px; font-size:15px; font-family:Arial, Helvetica, sans-serif; width:80%;"
+                  class="btn-link">Go To Dashboard</a>
+              </div>
+
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding: 0 20px 30px 20px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation"
+                style="max-width: 560px;">
+                <tr>
+                  <!-- Left: Logo -->
+                  <td align="left" style="vertical-align: middle;">
+                    <img src="{{emailImageUrl}}/gen/solar_logo.png" alt="SolarEstimate Logo" class="logo-small"
+                      style="width: 146px; height: 43px; display: inline-block; vertical-align: middle;">
+                  </td>
+
+
+                  <td align="right" style="vertical-align: middle;">
+                    <div style="display: inline-block;">
+                   <a href="https://www.withcard.in/solar_estimate_software/" style="margin:0 6px;" target="_blank" rel="noopener"><img src="{{emailImageUrl}}/gen/withcard.png" alt="withcard (Solar Estimate Software)" width="24" style="display:inline-block;"/></a>
+                                                <a href="https://www.facebook.com/solar_estimate/" style="margin:0 6px;" target="_blank" rel="noopener"><img src="{{emailImageUrl}}/gen/facebook.png" alt="Facebook (Solar Estimate)" width="24" style="display:inline-block;"/></a>
+                                                <a href="https://www.linkedin.com/company/solar-estimate-software/" style="margin:0 6px;" target="_blank" rel="noopener"><img src="{{emailImageUrl}}/gen/linkdin.png" alt="LinkedIn" width="24" style="display:inline-block;"/></a>
+                                                <a href="https://www.instagram.com/solar_estimate_software/" style="margin:0 6px;" target="_blank" rel="noopener"><img src="{{emailImageUrl}}/gen/insta.png" alt="Instagram" width="24" style="display:inline-block;"/></a>
+                                                <a href="https://www.youtube.com/@SolarEstimateApp" style="margin:0 6px;" target="_blank" rel="noopener"><img src="{{emailImageUrl}}/gen/youtube.png" alt="YouTube" width="24" style="display:inline-block;"/></a>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Footer Content Below Logo & Icons -->
+                <tr>
+                  <td colspan="2" align="center" style="padding-top: 25px;">
+                    <!-- Support Text -->
+                    <p style="color: #3F3F46; font-size: 15px; line-height: 22px; margin: 15px 0 10px;">
+                      Need assistance? Our support team is here to help
+                    </p>
+
+                    <!-- Support Email -->
+                    <p style="margin: 0;">
+                      <a href="mailto:support@solarestimate.com"
+                        style="color: #5766A1; font-size: 17px; font-weight: 600; text-decoration: none;">
+                        support@solarestimate.com
+                      </a>
+                    </p>
+
+                    <!-- Footer Links -->
+                    <div style="margin-top: 25px; margin-bottom: 20px;">
+
+                      <a href="#" class="footer-link">Privacy Policy</a> |
+                      <a href="#" class="footer-link">Terms Of Service</a>
+
+                    </div>
+
+                    <hr
+                      style="border:none;border-top:1px solid #D9DDDF;width:534px;height:0;opacity:1;margin:0 auto 15px auto;">
+
+                    <!-- Copyright -->
+                    <p style="color: #999; font-size: 13px; line-height: 20px; margin: 0;">
+                      &copy; 2024 SolarEstimate Pro. All Rights Reserved.
+                    </p>
+                    <p style="color: #999; font-size: 12px; line-height: 18px; margin: 5px 0 0 0;">
+                      This Email Was Sent To Confirm Your Membership Activation. Please Do Not<br />
+                      Reply To This Automated Message.
+                    </p>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+</body>
+
+</html>
