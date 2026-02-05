@@ -13,8 +13,9 @@ const { uploadProfileImage } = require('../middelware/uploadimage.js');
 
 router.post("/", createSuperUser);
 router.post("/login", loginUser);
-router.post("/verify-Otp", verifyOtp);
-router.get("/", protect, getUser);
-router.put("/", protect, uploadProfileImage, updateUser);
+router.post("/verify-otp", verifyOtp);
+router.get("/:id", protect, getUser);
+router.put("/:id", protect, uploadProfileImage, updateUser);
+router.delete("/:id", protect, logout);
 
 module.exports = router;
