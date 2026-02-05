@@ -1,9 +1,9 @@
 {
-  "name": "community",
+  "name": "hoarding-management-backend",
   "version": "1.0.0",
   "description": "",
   "license": "ISC",
-  "author": "Ankit Malaviya",
+  "author": "Shreyansh & Soham",
   "type": "commonjs",
   "main": "index.js",
   "scripts": {

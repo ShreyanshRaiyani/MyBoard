@@ -105,7 +105,7 @@ const deleteFromS3 = async (key) => {
   for (const candidate of candidates) {
     try {
       await s3.send(new DeleteObjectCommand({ Bucket: process.env.AWS_BUCKET_NAME, Key: candidate }));
-      return { success: true, key: candidate };
+      return { status:1, key: candidate };
     } catch (err) {
       // log and continue to next candidate
       console.error('deleteFromS3 attempt failed for', candidate, err && err.message ? err.message : err);
