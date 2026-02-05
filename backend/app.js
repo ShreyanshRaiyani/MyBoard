@@ -1,8 +1,13 @@
 const express = require('express');
 const cors = require('cors');
-const userRoutes = require('./Routes/userRoutes.js');
-const adminuserRoutes = require('./Routes/adminUserRoutes.js');
-const imageRoutes =  require('./Routes/imageRoutes.js');
+const userRoutes = require('./routes/userRoutes.js');
+const adminuserRoutes = require('./routes/adminUserRoutes.js');
+const imageRoutes =  require('./routes/imageRoutes.js');
+const unitRoutes = require('./routes/unitRoutes.js');
+const areaRoutes = require('./routes/areaRoutes.js');
+const cityRoutes = require('./routes/cityRoutes.js');
+const stateRoutes = require('./routes/stateRoutes.js');
+const countryRoutes = require('./routes/countryRoutes.js')
 
 const app = express();
 
@@ -22,7 +27,11 @@ app.use("/uploads", express.static("uploads"));
 app.get('/', (req, res) => { res.send('Welcome To Order'); res.end(); });
 app.use('/admin/api/user', adminuserRoutes);
 app.use('/api/user', userRoutes);
-
+app.use('/api/unit', unitRoutes);
+app.use('/api/area', areaRoutes);
+app.use('/api/city', cityRoutes);
+app.use('/api/state', stateRoutes);
+app.use('/api/country', countryRoutes);
 // app.use('/admin/api/dashboard', dashboardRoutes);
 
 // Image upload & serving routes (stores DB record with domain-based URL, serves images from S3)
@@ -39,4 +48,4 @@ app.use((err, req, res, next) => {
 });
 
 
-module.exports = { app };
+module.exports = app;
