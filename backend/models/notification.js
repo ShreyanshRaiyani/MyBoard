@@ -22,7 +22,6 @@ const notificationSchema = new mongoose.Schema({
       "worker_rejected",
       "payment",
       "system",
-      "reminder"
     ], 
     required: true 
   },

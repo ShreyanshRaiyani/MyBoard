@@ -67,10 +67,6 @@ const hoardingSchema = new mongoose.Schema(
       enum: ["Active", "Booked", "Inactive"],
       default: "Active",
     },
-    facingDirection: {
-      type: String,
-      enum: ["North", "South", "East", "West", "NorthEast", "NorthWest", "SouthEast", "SouthWest"],
-    },
     approvalStatus: {
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
