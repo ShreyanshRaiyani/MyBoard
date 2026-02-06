@@ -1,4 +1,4 @@
-const WorkRequest = require("../models/WorkRequest");
+const WorkRequest = require('../models/workerRequest');
 const Booking = require("../models/Booking");
 const User = require("../models/User");
 const Hoarding = require("../models/Hoarding");
