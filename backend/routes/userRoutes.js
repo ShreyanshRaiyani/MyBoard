@@ -12,10 +12,10 @@ const {
   logout,
 } = require("../Controllers/userController");
 
-const { protect } = require('../middelware/auth');
+const { protect } = require('../middleware/auth');
 const {
   attachImage,
-} = require('../middelware/uploadimage');
+} = require('../middleware/uploadimage');
 
 
 router.post("/signup", signUp);

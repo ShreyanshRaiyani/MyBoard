@@ -7,7 +7,12 @@ const unitRoutes = require('./routes/unitRoutes.js');
 const areaRoutes = require('./routes/areaRoutes.js');
 const cityRoutes = require('./routes/cityRoutes.js');
 const stateRoutes = require('./routes/stateRoutes.js');
-const countryRoutes = require('./routes/countryRoutes.js')
+const countryRoutes = require('./routes/countryRoutes.js');
+const bookingRoutes = require('./routes/bookingRoutes.js');
+const hoardingRoutes = require('./routes/hoardingRoutes.js');
+const notificationRoutes = require('./routes/notificationRoutes.js');
+const queueRoutes = require('./routes/queueRoutes.js');
+const workerRequestRoutes = require('./routes/workerRequestRoutes.js');
 
 const app = express();
 
@@ -25,13 +30,19 @@ app.use(express.urlencoded({ limit: "100mb", extended: true }));
 app.use("/uploads", express.static("uploads"));
 
 app.get('/', (req, res) => { res.send('Welcome To Order'); res.end(); });
-app.use('/admin/api/user', adminuserRoutes);
 app.use('/api/user', userRoutes);
+app.use('/admin/api/user', adminuserRoutes);
 app.use('/api/unit', unitRoutes);
 app.use('/api/area', areaRoutes);
 app.use('/api/city', cityRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/country', countryRoutes);
+app.use('/api/booking', bookingRoutes);
+app.use('/api/hoarding', hoardingRoutes);
+app.use('/api/notification', notificationRoutes);
+app.use('/api/queue', queueRoutes);
+app.use('/api/workerRequest', workerRequestRoutes);
+
 // app.use('/admin/api/dashboard', dashboardRoutes);
 
 // Image upload & serving routes (stores DB record with domain-based URL, serves images from S3)

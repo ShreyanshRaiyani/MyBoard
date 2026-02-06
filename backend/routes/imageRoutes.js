@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const { uploadImage, getImage, removeImage } = require('../Controllers/imageController');
-const { protect } = require('../middelware/auth');
+const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 

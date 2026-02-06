@@ -2,7 +2,7 @@ const asybcHandler = require("express-async-handler");
 const Booking = require("../models/Booking");
 const Hoarding = require("../models/Hoarding");
 const User = require("../models/User");
-const WorkAssignment = require("../models/WorkAssignment");
+const WorkAssignment = require('../models/workerRequest');
 const Queue = require("../models/Queue");
 const { sendNotification, notificationTemplates } = require("./notificationController");
 
