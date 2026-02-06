@@ -7,9 +7,9 @@ const {
     updateCountry,
     deleteCountry,
 } = require('../Controllers/countryController.js');
-const { protect } = require("../middelware/auth.js");
+const { protect } = require("../middleware/auth.js");
 
-router.post("/", addCountry);
+router.post("/",protect, addCountry);
 router.get("/", protect, getCountries);
 router.get("/:id", protect, getCountryById);
 router.put("/:id", protect, updateCountry);

@@ -7,9 +7,9 @@ const {
     updateUnit,
     deleteUnit,
 } = require('../Controllers/unitController.js');
-const { protect } = require("../middelware/auth.js");
+const { protect } = require("../middleware/auth.js");
 
-router.post("/", createUnit);
+router.post("/",protect, createUnit);
 router.get("/", protect, getUnits);
 router.get("/:id", protect, getUnit);
 router.put("/:id", protect, updateUnit);

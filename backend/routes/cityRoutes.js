@@ -7,9 +7,9 @@ const {
     updateCity,
     deleteCity,
 } = require('../Controllers/cityController.js');
-const { protect } = require("../middelware/auth.js");
+const { protect } = require("../middleware/auth.js");
 
-router.post("/", addCity);
+router.post("/",protect, addCity);
 router.get("/", protect, getCities);
 router.get("/:id", protect, getCityById);
 router.put("/:id", protect, updateCity);
