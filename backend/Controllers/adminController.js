@@ -1,11 +1,11 @@
 const asyncHandler = require("express-async-handler");
 const User = require('../models/User.js');
 const Device = require('../models/Device.js');
-const { sendResetPasswordEmail } = require('../middelware/sendmail.js');
+const { sendResetPasswordEmail } = require('../middleware/sendmail.js');
 const bcrypt = require("bcryptjs");
-const generateToken = require('../middelware/generatetoken.js');
+const generateToken = require('../middleware/generatetoken.js');
 const multer = require("multer");
-const { deviceAddUpdate } = require('..//middelware/addupdatedevicedata.js');
+const { deviceAddUpdate } = require('..//middleware/addupdatedevicedata.js');
 const Country = require('../models/Country.js');
 const State = require('../models/State.js');
 const City = require('../models/City.js');

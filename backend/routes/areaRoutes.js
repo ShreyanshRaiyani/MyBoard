@@ -7,9 +7,9 @@ const {
     updateArea,
     deleteArea,
 } = require('../Controllers/areaController.js');
-const { protect } = require("../middelware/auth.js");
+const { protect } = require("../middleware/auth.js");
 
-router.post("/", addArea);
+router.post("/",protect, addArea);
 router.get("/", protect, getAreas);
 router.get("/:id", protect, getAreaById);
 router.put("/:id", protect, updateArea);
