@@ -35,7 +35,7 @@ try {
 let compiledPartnerTemplate = null;
 let compiledPurchaseTemplate = null;
 try {
-  const partnerPath = path.join(__dirname, 'emailTemplates', 'ordermanageCreated.html');
+  const partnerPath = path.join(__dirname, 'emailTemplates', 'hoardingCreated.html');
   const partnerContent = fs.readFileSync(partnerPath, 'utf8');
   if (partnerContent && partnerContent.length) {
     compiledPartnerTemplate = Handlebars.compile(partnerContent);
@@ -103,7 +103,7 @@ function sendResetPasswordEmail(email, otp, verification, user, req) {
   }
 
   const mailOptions = {
-    from: "community.innoveza@gmail.com",
+    from: "myboard71@gmail.com",
     to: email,
     subject: "Email Confirmation OTP",
     html: htmlBody
@@ -157,7 +157,7 @@ function sendOderManagementCreatedEmail(email,  user, req) {
   }
 
   const mailOptions = {
-    from: "community.innoveza@gmail.com",
+    from: "myboard71@gmail.com",
     to: email,
     subject: "New Partner Created",
     html: htmlBody
@@ -209,7 +209,7 @@ function sendPurchasePlanEmail(email, plan, user, payment, req) {
   }
 
   const mailOptions = {
-    from: "community.innoveza@gmail.com",
+    from: "myboard71@gmail.com",
     to: email,
     subject: "Plan Purchase Confirmation",
     html: htmlBody
