@@ -7,6 +7,7 @@ const generateToken = require('../middleware/generatetoken');
 const { uploadImageReturnUrl, deleteFromS3 } = require("./imageController");
 const path = require("path");
 const Device = require("../models/Device");
+const {sendResetPasswordEmail} = require('../middleware/sendmail')
 
 const signUp = asyncHandler(async (req, res) => {
     try {
@@ -93,7 +94,8 @@ const signUp = asyncHandler(async (req, res) => {
             hashedPassword = await bcrypt.hash(password, 10);
         } else {
             // Generate OTP for non-SuperAdmin users
-            otp = generateOTP();
+            otp = Math.floor(1000 + Math.random() * 9000);
+            console.log("OTP", otp)
             console.log(`OTP for ${mobileNumber}: ${otp}`);
             // In production: send OTP via SMS/Email
         }
@@ -113,15 +115,13 @@ const signUp = asyncHandler(async (req, res) => {
             memberId,
             address,
             business,
-            businessPhoneNumber,
             gstNumber,
-            pan_number,
             workerType,
             experience,
             skills,
             plan: plan ? mongoose.Types.ObjectId(plan) : undefined,
             accountStatus: userType === "SuperAdmin" ? "Verified" : "Pending",
-            userStatus: "Active",
+            userStatus,
             emailverified: userType === "SuperAdmin" ? true : false,
         };
 
@@ -155,7 +155,6 @@ const signUp = asyncHandler(async (req, res) => {
                 user: userResponse,
                 token: token || undefined,
             },
-            otp: userType !== "SuperAdmin" ? otp : undefined, // For testing only
         });
     } catch (error) {
         console.error("SignUp error:", error);
@@ -183,21 +182,17 @@ const login = asyncHandler(async (req, res) => {
 
         const { email, mobileNumber, password, otp } = req.body;
 
+
         // Validate input
-        if ((!email && !mobileNumber) || (!password && !otp)) {
+        if (!email) {
             return res.status(200).json({
                 Status: 0,
-                Message: "Please provide email/mobile and password/OTP",
+                Message: "Please provide email",
             });
         }
 
         // Find user
-        let user;
-        if (email) {
-            user = await User.findOne({ email });
-        } else if (mobileNumber) {
-            user = await User.findOne({ mobileNumber });
-        }
+        const user = await User.findOne({ email }).select("+password");
 
         if (!user) {
             return res.status(200).json({
@@ -214,120 +209,42 @@ const login = asyncHandler(async (req, res) => {
             });
         }
 
-        let isAuthenticated = false;
-        let token = null;
-
-        // Authentication based on user type
-        if (user.userType === "SuperAdmin") {
-            // SuperAdmin login with password
-            if (!password) {
-                return res.status(200).json({
-                    Status: 0,
-                    Message: "Password is required for SuperAdmin login",
-                });
-            }
-
-            // Get user with password
-            const userWithPassword = await User.findOne({
-                $or: [{ email }, { mobileNumber }],
-            }).select("+password");
-
-            if (!userWithPassword) {
-                return res.status(200).json({
-                    Status: 0,
-                    Message: "User not found",
-                });
-            }
-
-            // Verify password
-            isAuthenticated = await bcrypt.compare(
-                password,
-                userWithPassword.password,
-            );
-
-            if (!isAuthenticated) {
-                return res.status(200).json({
-                    Status: 0,
-                    Message: "Invalid password",
-                });
-            }
-        } else {
-            // Non-SuperAdmin login with OTP
-            if (!otp) {
-                // Generate and send OTP if not provided
-                const newOTP = generateOTP();
-
-                // Get user with OTP field
-                const userWithOTP = await User.findOne({
-                    $or: [{ email }, { mobileNumber }],
-                }).select("+otp");
-
-                if (userWithOTP) {
-                    userWithOTP.otp = newOTP;
-                    await userWithOTP.save();
-
-                    console.log(`OTP for ${email || mobileNumber}: ${newOTP}`);
-                    // In production: Send OTP via SMS/Email
-
-                    return res.status(200).json({
-                        Status: 1,
-                        Message: "OTP sent to your registered email/mobile",
-                        otp: newOTP, // For testing only
-                    });
-                }
-
-                return res.status(200).json({
-                    Status: 0,
-                    Message: "User not found",
-                });
-            }
-
-            // Get user with OTP
-            const userWithOTP = await User.findOne({
-                $or: [{ email }, { mobileNumber }],
-            }).select("+otp");
-
-            if (!userWithOTP || !userWithOTP.otp) {
-                return res.status(200).json({
-                    Status: 0,
-                    Message: "No OTP requested or OTP expired",
-                });
-            }
-
-            // Verify OTP
-            if (userWithOTP.otp !== otp) {
-                return res.status(200).json({
-                    Status: 0,
-                    Message: "Invalid OTP",
-                });
-            }
-
-            // Clear OTP after successful verification
-            userWithOTP.otp = undefined;
-            await userWithOTP.save();
-
-            isAuthenticated = true;
+        if (email && !password) {
+            const otp = Math.floor(1000 + Math.random() * 9000);
+            const verification = "confirm your email";
+            await sendResetPasswordEmail(email, otp, verification, user, req);
+            user.otp = otp;
+            user.emailverified = false;
+            await user.save();
         }
 
-        if (!isAuthenticated) {
-            return res.status(200).json({
-                Status: 0,
-                Message: "Authentication failed",
-            });
+        if (email && password) {
+            const isPasswordCorrect = await bcrypt.compare(password, user.password)
+            if (!isPasswordCorrect) {
+                return res.status.json({
+                    Status: 0,
+                    Message: "Your PassWord is Worng"
+                })
+            }
         }
 
-        // Generate JWT token
-        token = generateToken(user._id, user.userType);
+        const populateuser = await User.findById(user.id).select("-emailverified")
+
 
         // Remove sensitive data
-        const userResponse = user.toJSON();
+        Object.keys(populateuser).forEach((key) => {
+            if (populateuser[key] === null || populateuser[key] == undefined)
+                delete populateuser[key]
+        })
 
         res.status(200).json({
             Status: 1,
             Message: "Login successful",
             data: {
-                user: userResponse,
-                token,
+                user: populateuser,
+                token: generateToken(user._id, user.userType),
+                userType: user.userType,
+                accountStatus: user.accountStatus,
             },
         });
     } catch (error) {
@@ -342,78 +259,57 @@ const login = asyncHandler(async (req, res) => {
 
 const verifyOTP = asyncHandler(async (req, res) => {
     try {
-        const { email, mobileNumber, otp } = req.body;
+        const { email, otp } = req.body;
 
-        if (!otp) {
+        if (!email || !otp) {
             return res.status(200).json({
                 Status: 0,
-                Message: "OTP is required",
+                Message: "Email and OTP are required"
             });
         }
 
-        // Find user by email or mobile number
-        let query = {};
-        if (email) {
-            query.email = email;
-        } else if (mobileNumber) {
-            query.mobileNumber = mobileNumber;
-        } else {
-            return res.status(200).json({
-                Status: 0,
-                Message: "Please provide email or mobile number",
-            });
-        }
-
-        // Get user with OTP
-        const user = await User.findOne(query).select("+otp");
+        const user = await User.findOne({ email }).select('+otp');
 
         if (!user) {
             return res.status(200).json({
                 Status: 0,
-                Message: "User not found",
+                Message: "User not found"
             });
         }
 
-        // SuperAdmin doesn't use OTP
-        if (user.userType === "SuperAdmin") {
+        console.log("Verifying OTP:", { providedOtp: otp, userOtp: user.otp });
+        if (user.otp !== otp) {
             return res.status(200).json({
                 Status: 0,
-                Message: "SuperAdmin does not use OTP verification",
+                Message: "Invalid OTP"
             });
         }
 
-        if (!user.otp || user.otp !== otp) {
-            return res.status(200).json({
-                Status: 0,
-                Message: "Invalid or expired OTP",
-            });
-        }
-
-        // Clear OTP and verify email
-        user.otp = undefined;
+        // Update user
         user.emailverified = true;
+        user.otp = null; // Clear OTP after successful verification
         await user.save();
 
-        // Generate token
-        const token = generateToken(user._id, user.userType);
+        // Generate new token
+        const userToken = generateToken(user._id);
 
-        // Remove sensitive data
-        const userResponse = user.toJSON();
+        // Fetch user without sensitive data
+        const populatedUser = await User.findById(user._id)
+            .select('-password -otp -resettoken -resettokentime')
+            .exec();
 
-        res.status(200).json({
+        return res.status(200).json({
             Status: 1,
-            Message: "OTP verified successfully",
-            data: {
-                user: userResponse,
-                token,
-            },
+            Message: "Email verified successfully",
+            user: populatedUser,
+            UserToken: userToken
         });
+
     } catch (error) {
         console.error("OTP verification error:", error);
-        res.status(500).json({
+        return res.status(500).json({
             Status: 0,
-            Message: "Server error during OTP verification",
-            error: process.env.NODE_ENV === "development" ? error.message : undefined,
+            Message: "Server error during OTP verification"
         });
     }
 });
@@ -637,7 +533,6 @@ const updateUser = asyncHandler(async (req, res) => {
 
         // Only SuperAdmin can update these sensitive fields
         if (!isSuperAdmin) {
-            delete updates.userStatus;
             delete updates.averageRating;
             delete updates.totalRatings;
         }
