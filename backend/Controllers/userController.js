@@ -121,7 +121,6 @@ const signUp = asyncHandler(async (req, res) => {
             skills,
             plan: plan ? mongoose.Types.ObjectId(plan) : undefined,
             accountStatus: userType === "SuperAdmin" ? "Verified" : "Pending",
-            userStatus,
             emailverified: userType === "SuperAdmin" ? true : false,
         };
 
