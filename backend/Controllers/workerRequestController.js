@@ -148,7 +148,7 @@ const createWorkRequest = async (req, res) => {
 
     // Update booking with work request reference
     await Booking.findByIdAndUpdate(bannerRequest, {
-      workAssignment: workRequest._id
+      workRequest: workRequest._id
     });
 
     // Send confirmation to banner user
@@ -799,7 +799,7 @@ const deleteWorkRequest = async (req, res) => {
 
     // Clear work assignment from booking
     await Booking.findByIdAndUpdate(workRequest.bannerRequest._id, {
-      $unset: { workAssignment: "" }
+      $unset: { workRequest: "" }
     });
 
     await workRequest.deleteOne();

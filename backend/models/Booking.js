@@ -63,9 +63,9 @@ const bookingSchema = new mongoose.Schema(
       type: String,
     },
     // Link to work assignment once approved
-    workAssignment: {
+    workRequest: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "WorkAssignment",
+      ref: "WorkRequest",
     },
   },
   { timestamps: true }
@@ -84,7 +84,7 @@ function autoPopulate(next) {
   this.populate("bannerUser", "firstName lastName email mobileNumber business");
   this.populate("hoarding");
   this.populate("hoardingOwner", "firstName lastName email mobileNumber business");
-  this.populate("workAssignment");
+  this.populate("workRequest");
   next();
 }
 

@@ -20,6 +20,7 @@ const notificationSchema = new mongoose.Schema({
       "worker_request",
       "worker_approved",
       "worker_rejected",
+      "queue_joined",
       "payment",
       "system",
     ], 
