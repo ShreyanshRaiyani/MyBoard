@@ -24,9 +24,9 @@ const createBooking = asybcHandler(async (req, res) => {
     const { hoardingId, campaignName, startDate, endDate, notes } = req.body;
 
     // Check if user is authenticated and is a banner user
-    if (!req.user || req.user.userType !== "bannerUser") {
+    if (!req.user || req.user.userType !== "BannerUser") {
         return res.status(403).json({
-            status:0,
+            status: 0,
             message: "Only banner users can create bookings"
         });
     }
@@ -37,7 +37,7 @@ const createBooking = asybcHandler(async (req, res) => {
 
     if (!hoarding) {
         return res.status(404).json({
-            status:0,
+            status: 0,
             message: "Hoarding not found"
         });
     }
@@ -45,7 +45,7 @@ const createBooking = asybcHandler(async (req, res) => {
     // Check hoarding status and approval
     if (hoarding.status !== "Active" || hoarding.approvalStatus !== "Approved") {
         return res.status(400).json({
-            status:0,
+            status: 0,
             message: "Hoarding is not available for booking"
         });
     }
@@ -55,7 +55,7 @@ const createBooking = asybcHandler(async (req, res) => {
     const end = new Date(endDate);
     if (start >= end) {
         return res.status(400).json({
-            status:0,
+            status: 0,
             message: "End date must be after start date"
         });
     }
@@ -153,7 +153,7 @@ const createBooking = asybcHandler(async (req, res) => {
             .populate("hoardingOwner", "firstName lastName email mobileNumber");
 
         return res.status(200).json({
-            status:1,
+            status: 1,
             message: "Hoarding is currently booked. You have been added to the queue.",
             data: {
                 booking: populatedBooking,
@@ -193,7 +193,7 @@ const createBooking = asybcHandler(async (req, res) => {
         .populate("hoardingOwner", "firstName lastName email mobileNumber");
 
     res.status(201).json({
-        status:1,
+        status: 1,
         message: "Booking request created successfully",
         data: populatedBooking
     });
@@ -272,7 +272,7 @@ const getBookingById = asybcHandler(async (req, res) => {
 
     if (!booking) {
         return res.status(404).json({
-            status:0,
+            status: 0,
             message: "Booking not found"
         });
     }
@@ -284,7 +284,7 @@ const getBookingById = asybcHandler(async (req, res) => {
 
     if (!isBannerUser && !isHoardingOwner && !isSuperAdmin) {
         return res.status(403).json({
-            status:0,
+            status: 0,
             message: "Not authorized to view this booking"
         });
     }
@@ -313,7 +313,7 @@ const getBookingById = asybcHandler(async (req, res) => {
     }
 
     res.status(200).json({
-        status:1,
+        status: 1,
         data: {
             ...booking.toObject(),
             queueInfo
@@ -333,7 +333,7 @@ const updateBooking = asybcHandler(async (req, res) => {
 
     if (!booking) {
         return res.status(404).json({
-            status:0,
+            status: 0,
             message: "Booking not found"
         });
     }
@@ -343,7 +343,7 @@ const updateBooking = asybcHandler(async (req, res) => {
         // Only hoarding owner can update owner response
         if (req.user.id !== booking.hoardingOwner._id.toString() && req.user.userType !== "SuperAdmin") {
             return res.status(403).json({
-                status:0,
+                status: 0,
                 message: "Only hoarding owner can update booking response"
             });
         }
@@ -353,7 +353,7 @@ const updateBooking = asybcHandler(async (req, res) => {
         // Validate status transition
         if (!["Approved", "Rejected", "Pending"].includes(newStatus)) {
             return res.status(400).json({
-                status:0,
+                status: 0,
                 message: "Invalid status"
             });
         }
@@ -462,7 +462,7 @@ const updateBooking = asybcHandler(async (req, res) => {
         // Only banner user or admin can update payment
         if (req.user.id !== booking.bannerUser._id.toString() && req.user.userType !== "SuperAdmin") {
             return res.status(403).json({
-                status:0,
+                status: 0,
                 message: "Only banner user can update payment information"
             });
         }
@@ -493,7 +493,7 @@ const updateBooking = asybcHandler(async (req, res) => {
         // Only hoarding owner can assign work
         if (req.user.id !== booking.hoardingOwner._id.toString()) {
             return res.status(403).json({
-                status:0,
+                status: 0,
                 message: "Only hoarding owner can assign work"
             });
         }
@@ -501,7 +501,7 @@ const updateBooking = asybcHandler(async (req, res) => {
         // Check if booking is approved
         if (booking.ownerResponse.status !== "Approved") {
             return res.status(400).json({
-                status:0,
+                status: 0,
                 message: "Cannot assign work to unapproved booking"
             });
         }
@@ -540,7 +540,7 @@ const updateBooking = asybcHandler(async (req, res) => {
         .populate("workAssignment");
 
     res.status(200).json({
-        status:1,
+        status: 1,
         message: "Booking updated successfully",
         data: updatedBooking
     });
@@ -554,19 +554,19 @@ const deleteBooking = asybcHandler(async (req, res) => {
 
     if (!booking) {
         return res.status(404).json({
-            status:0,
+            status: 0,
             message: "Booking not found"
         });
     }
 
     // Check authorization
-    const isBannerUser = booking.bannerUser.toString() === req.user.id;
-    const isHoardingOwner = booking.hoardingOwner.toString() === req.user.id;
+    const isBannerUser = booking.bannerUser._id.toString() === req.user.id;
+    const isHoardingOwner = booking.hoardingOwner._id.toString() === req.user.id;
     const isSuperAdmin = req.user.userType === "SuperAdmin";
 
     if (!isBannerUser && !isHoardingOwner && !isSuperAdmin) {
         return res.status(403).json({
-            status:0,
+            status: 0,
             message: "Not authorized to delete this booking"
         });
     }
@@ -574,7 +574,7 @@ const deleteBooking = asybcHandler(async (req, res) => {
     // Only allow deletion if booking is pending or rejected
     if (booking.ownerResponse.status === "Approved" && booking.paymentStatus === "Paid") {
         return res.status(400).json({
-            status:0,
+            status: 0,
             message: "Cannot delete approved and paid booking. Please contact support."
         });
     }
@@ -650,7 +650,7 @@ const deleteBooking = asybcHandler(async (req, res) => {
     }
 
     res.status(200).json({
-        status:1,
+        status: 1,
         message: "Booking deleted successfully"
     });
 });
@@ -754,7 +754,7 @@ const respondToWorkAssignment = asybcHandler(async (req, res) => {
 
     if (!workAssignment) {
         return res.status(404).json({
-            status:0,
+            status: 0,
             message: "Work assignment not found"
         });
     }
@@ -762,7 +762,7 @@ const respondToWorkAssignment = asybcHandler(async (req, res) => {
     // Check if user is the assigned worker
     if (workAssignment.worker._id.toString() !== req.user.id) {
         return res.status(403).json({
-            status:0,
+            status: 0,
             message: "Only assigned worker can respond"
         });
     }
@@ -817,7 +817,7 @@ const respondToWorkAssignment = asybcHandler(async (req, res) => {
     }
 
     res.status(200).json({
-        status:1,
+        status: 1,
         message: `Work assignment ${status.toLowerCase()} successfully`,
         data: workAssignment
     });
@@ -836,13 +836,13 @@ const getQueueStatus = asybcHandler(async (req, res) => {
 
     if (!queue) {
         return res.status(404).json({
-            status:0,
+            status: 0,
             message: "No active queue found for this hoarding"
         });
     }
 
     res.status(200).json({
-        status:1,
+        status: 1,
         data: queue
     });
 });
