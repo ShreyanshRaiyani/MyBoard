@@ -62,17 +62,17 @@ const hoardingSchema = new mongoose.Schema(
     pricePerDay: {
       type: Number,
     },
-    status: {
+    status: { // booking perpose
       type: String,
       enum: ["Active", "Booked", "Inactive"],
       default: "Active",
     },
-    approvalStatus: {
+    approvalStatus: { //approval perpose
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
     },
-    isActive: {
+    isActive: { // hoarding Active or Inactive
       type: Boolean,
       default: true,
     },

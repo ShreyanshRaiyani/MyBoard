@@ -33,8 +33,8 @@ const queueSchema = new mongoose.Schema(
           enum: ["Waiting", "Approved", "Rejected"],
           default: "Waiting",
         },
-        estimatedStartDate: { type: Date },
-        estimatedEndDate: { type: Date },
+        // estimatedStartDate: { type: Date },
+        // estimatedEndDate: { type: Date },
       },
     ],
     currentBooking: {

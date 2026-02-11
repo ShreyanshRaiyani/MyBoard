@@ -6,7 +6,7 @@ const {
     getBookingById,
     updateBooking,
     deleteBooking,
-    respondToWorkAssignment,
+    respondToWorkRequest,
     getQueueStatus
 } = require('../Controllers/bookingController.js');
 const { protect } = require("../middleware/auth.js");
@@ -16,7 +16,7 @@ router.get("/", protect, getAllBookings);
 router.get("/:id", protect, getBookingById);
 router.put("/:id", protect, updateBooking);
 router.delete("/:id", protect, deleteBooking);
-router.post("/respond",protect, respondToWorkAssignment);
-router.get("/queue/:id", protect, getQueueStatus);
+router.post("/respond",protect, respondToWorkRequest);
+router.get("/queue/:hoardingId", protect, getQueueStatus);
 
 module.exports = router;

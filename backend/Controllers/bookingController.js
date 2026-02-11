@@ -2,7 +2,7 @@ const asybcHandler = require("express-async-handler");
 const Booking = require("../models/Booking");
 const Hoarding = require("../models/Hoarding");
 const User = require("../models/User");
-const WorkAssignment = require('../models/workerRequest');
+const WorkRequest = require('../models/workerRequest');
 const Queue = require("../models/Queue");
 const { sendNotification, notificationTemplates } = require("./notificationController");
 
@@ -43,7 +43,7 @@ const createBooking = asybcHandler(async (req, res) => {
     }
 
     // Check hoarding status and approval
-    if (hoarding.status !== "Active" || hoarding.approvalStatus !== "Approved") {
+    if (!hoarding?.isActive || hoarding.approvalStatus !== "Approved") {
         return res.status(400).json({
             status: 0,
             message: "Hoarding is not available for booking"
@@ -74,6 +74,13 @@ const createBooking = asybcHandler(async (req, res) => {
         ]
     });
 
+    if (conflictingBooking) {
+        return res.status(400).json({
+            status: 0,
+            message: "Hoarding is not available for booking Because Conflict Occure"
+        });
+    };
+
     // Calculate pricing
     const basePrice = hoarding.pricePerDay * totalDays;
     const taxAmount = basePrice * 0.18;
@@ -102,50 +109,100 @@ const createBooking = asybcHandler(async (req, res) => {
         }
     };
 
-    // Check if queue exists
-    let queue = await Queue.findOne({
-        hoarding: hoardingId,
-        isActive: true
-    });
-
-    if (conflictingBooking && hoarding.status === "Booked") {
+    if (hoarding.status === "Booked") {
         // Hoarding is currently booked, handle queue logic
+        // Check if queue exists
+        let queue = await Queue.findOne({
+            hoarding: hoardingId,
+            isActive: true
+        });
+
         if (!queue) {
             // Create new queue for this hoarding
-            queue = await createQueueForHoarding(hoardingId, hoarding.owner._id, conflictingBooking._id, end);
+            queue = await createQueueForHoarding(hoardingId, hoarding.owner);
         }
 
-        // Add booking request to queue
+        // Create booking first
         const booking = new Booking(bookingData);
         await booking.save();
 
-        const queueEntry = {
+        // Get all existing queue entries with their booking details
+        const queueEntriesWithDetails = await Promise.all(
+            queue.queue.map(async (entry) => {
+                const bookingDetails = await Booking.findById(entry.bookingRequest);
+                return {
+                    _id: entry._id,
+                    bannerUser: entry.bannerUser,
+                    bookingRequest: entry.bookingRequest,
+                    position: entry.position,
+                    joinDate: entry.joinDate,
+                    status: entry.status,
+                    startDate: bookingDetails?.duration?.startDate,
+                    endDate: bookingDetails?.duration?.endDate
+                };
+            })
+        );
+
+        // Create new queue entry with start date
+        const newQueueEntry = {
             bannerUser: req.user.id,
             bookingRequest: booking._id,
-            position: queue.queue.length + 1,
             joinDate: new Date(),
-            status: "Waiting"
+            status: "Waiting",
+            startDate: booking.duration.startDate,
+            endDate: booking.duration.endDate
         };
 
-        // Calculate estimated dates based on queue position
-        const estimatedDates = calculateEstimatedDates(queue, queueEntry.position);
-        queueEntry.estimatedStartDate = estimatedDates.startDate;
-        queueEntry.estimatedEndDate = estimatedDates.endDate;
+        // Add new entry to array
+        queueEntriesWithDetails.push(newQueueEntry);
 
-        queue.queue.push(queueEntry);
+        // Filter out entries without valid dates and sort by start date
+        const validEntries = queueEntriesWithDetails.filter(entry => entry.startDate);
+        validEntries.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+        // Reassign positions based on sorted order
+        const updatedQueueEntries = validEntries.map((entry, index) => ({
+            bannerUser: entry.bannerUser,
+            bookingRequest: entry.bookingRequest,
+            position: index + 1,
+            joinDate: entry.joinDate || new Date(),
+            status: entry.status || "Waiting",
+            estimatedStartDate: null, // Will be calculated later
+            estimatedEndDate: null     // Will be calculated later
+        }));
+
+        // Calculate estimated dates for each queue entry
+        const queueWithEstimatedDates = await calculateEstimatedDatesForQueue(
+            queue,
+            updatedQueueEntries,
+            booking
+        );
+
+        // Update queue with sorted entries and estimated dates
+        queue.queue = queueWithEstimatedDates;
         await queue.save();
+
+        // Find user's queue entry
+        const userQueueEntry = queue.queue.find(
+            entry => entry.bookingRequest.toString() === booking._id.toString()
+        );
 
         // Send notification to banner user about queue position
         await sendNotification({
             userId: req.user.id,
             title: "Added to Queue",
-            message: `Your booking request has been added to queue. Position: ${queueEntry.position}`,
+            message: `Your booking request has been added to queue. Position: ${userQueueEntry.position}`,
             type: "queue_joined",
             relatedModel: "Booking",
             relatedId: booking._id,
             actionUrl: `/bookings/${booking._id}`,
             actionLabel: "View Booking"
         });
+
+        // Notify others in queue about position changes if any
+        if (queue.queue.length > 1) {
+            await notifyQueuePositionChanges(queue, booking._id);
+        }
 
         const populatedBooking = await Booking.findById(booking._id)
             .populate("bannerUser", "firstName lastName email mobileNumber")
@@ -157,10 +214,11 @@ const createBooking = asybcHandler(async (req, res) => {
             message: "Hoarding is currently booked. You have been added to the queue.",
             data: {
                 booking: populatedBooking,
-                queuePosition: queueEntry.position,
-                estimatedStartDate: queueEntry.estimatedStartDate,
-                estimatedEndDate: queueEntry.estimatedEndDate,
-                inQueue: true
+                queuePosition: userQueueEntry.position,
+                estimatedStartDate: userQueueEntry.estimatedStartDate,
+                estimatedEndDate: userQueueEntry.estimatedEndDate,
+                inQueue: true,
+                totalInQueue: queue.queue.length
             }
         });
     }
@@ -235,7 +293,7 @@ const getAllBookings = asybcHandler(async (req, res) => {
         .populate("bannerUser", "firstName lastName email mobileNumber")
         .populate("hoarding")
         .populate("hoardingOwner", "firstName lastName email mobileNumber")
-        .populate("workAssignment")
+        .populate("workRequest")
         .sort(sort)
         .skip(skip)
         .limit(Number(limit));
@@ -252,7 +310,7 @@ const getAllBookings = asybcHandler(async (req, res) => {
     }
 
     res.status(200).json({
-        status:1,
+        status: 1,
         count: bookings.length,
         total,
         totalPages: Math.ceil(total / limit),
@@ -268,7 +326,7 @@ const getBookingById = asybcHandler(async (req, res) => {
         .populate("bannerUser", "firstName lastName email mobileNumber")
         .populate("hoarding")
         .populate("hoardingOwner", "firstName lastName email mobileNumber")
-        .populate("workAssignment");
+        .populate("workRequest");
 
     if (!booking) {
         return res.status(404).json({
@@ -489,7 +547,7 @@ const updateBooking = asybcHandler(async (req, res) => {
         }
     }
 
-    if (updates.workAssignment) {
+    if (updates.workRequest) {
         // Only hoarding owner can assign work
         if (req.user.id !== booking.hoardingOwner._id.toString()) {
             return res.status(403).json({
@@ -507,27 +565,27 @@ const updateBooking = asybcHandler(async (req, res) => {
         }
 
         // Create work assignment
-        const workAssignment = new WorkAssignment({
+        const workRequest = new WorkRequest({
             booking: booking._id,
             hoarding: booking.hoarding._id,
-            worker: updates.workAssignment.workerId,
+            worker: updates.workRequest.workerId,
             assignedBy: req.user.id,
-            scheduledDate: updates.workAssignment.scheduledDate,
-            notes: updates.workAssignment.notes
+            scheduledDate: updates.workRequest.scheduledDate,
+            notes: updates.workRequest.notes
         });
 
-        await workAssignment.save();
-        booking.workAssignment = workAssignment._id;
+        await workRequest.save();
+        booking.workRequest = workRequest._id;
 
         // Send notification to worker
         await sendNotification({
-            userId: updates.workAssignment.workerId,
+            userId: updates.workRequest.workerId,
             title: "New Work Assignment",
             message: `You have been assigned work for booking ${booking.requestNumber}`,
             type: "worker_request",
-            relatedModel: "WorkAssignment",
-            relatedId: workAssignment._id,
-            actionUrl: `/work-assignments/${workAssignment._id}`,
+            relatedModel: "WorkRequest",
+            relatedId: workRequest._id,
+            actionUrl: `/work-assignments/${workRequest._id}`,
             actionLabel: "View Assignment"
         });
     }
@@ -537,7 +595,7 @@ const updateBooking = asybcHandler(async (req, res) => {
         .populate("bannerUser", "firstName lastName email mobileNumber")
         .populate("hoarding")
         .populate("hoardingOwner", "firstName lastName email mobileNumber")
-        .populate("workAssignment");
+        .populate("workRequest");
 
     res.status(200).json({
         status: 1,
@@ -672,22 +730,148 @@ const createQueueForHoarding = async (hoardingId, hoardingOwnerId, currentBookin
     return queue;
 };
 
-// Calculate estimated dates based on queue position
-const calculateEstimatedDates = (queue, position) => {
-    // Simple calculation: each booking gets 30 days by default
-    const daysPerBooking = 30;
-    const startDate = queue.nextAvailableDate || new Date();
+// Calculate estimated dates based on queue position and existing bookings
+const calculateEstimatedDatesForQueue = async (queue, queueEntries, newBooking = null) => {
+    try {
+        // Get all approved bookings for this hoarding
+        const approvedBookings = await Booking.find({
+            hoarding: queue.hoarding,
+            "ownerResponse.status": "Approved",
+            duration: { $exists: true }
+        }).sort({ "duration.startDate": 1 });
 
-    const estimatedStartDate = new Date(startDate);
-    estimatedStartDate.setDate(estimatedStartDate.getDate() + ((position - 1) * daysPerBooking));
+        // Find the last approved booking date
+        let lastBookedDate = new Date();
+        if (approvedBookings.length > 0) {
+            const lastBooking = approvedBookings[approvedBookings.length - 1];
+            lastBookedDate = new Date(lastBooking.duration.endDate);
+            lastBookedDate.setDate(lastBookedDate.getDate() + 1);
+        }
 
-    const estimatedEndDate = new Date(estimatedStartDate);
-    estimatedEndDate.setDate(estimatedEndDate.getDate() + daysPerBooking);
+        // Sort queue entries by start date
+        const sortedEntries = [...queueEntries].sort((a, b) => {
+            // Handle entries without start date
+            if (!a.startDate) return 1;
+            if (!b.startDate) return -1;
+            return new Date(a.startDate) - new Date(b.startDate);
+        });
 
-    return {
-        startDate: estimatedStartDate,
-        endDate: estimatedEndDate
-    };
+        // Calculate estimated dates for each entry
+        let currentAvailableDate = new Date(lastBookedDate);
+
+        const entriesWithEstimates = await Promise.all(sortedEntries.map(async (entry, index) => {
+            const bookingDetails = await Booking.findById(entry.bookingRequest);
+
+            // Calculate estimated start date based on position
+            const estimatedStartDate = new Date(currentAvailableDate);
+
+            // Calculate estimated end date based on requested duration
+            let estimatedEndDate = new Date(estimatedStartDate);
+            if (bookingDetails && bookingDetails.duration) {
+                const requestedDays = bookingDetails.duration.totalDays || 30;
+                estimatedEndDate.setDate(estimatedEndDate.getDate() + requestedDays);
+            } else {
+                // Default 30 days if no duration found
+                estimatedEndDate.setDate(estimatedEndDate.getDate() + 30);
+            }
+
+            // Update current available date for next entry
+            currentAvailableDate = new Date(estimatedEndDate);
+            currentAvailableDate.setDate(currentAvailableDate.getDate() + 1);
+
+            return {
+                bannerUser: entry.bannerUser,
+                bookingRequest: entry.bookingRequest,
+                position: index + 1,
+                joinDate: entry.joinDate || new Date(),
+                status: entry.status || "Waiting",
+                estimatedStartDate: estimatedStartDate,
+                estimatedEndDate: estimatedEndDate
+            };
+        }));
+
+        return entriesWithEstimates;
+    } catch (error) {
+        console.error("Error calculating estimated dates:", error);
+        return queueEntries;
+    }
+};
+
+// Recalculate queue positions after changes
+const recalculateQueuePositions = async (queue) => {
+    try {
+        // Get all queue entries with their booking details
+        const entriesWithDetails = await Promise.all(
+            queue.queue.map(async (entry) => {
+                const bookingDetails = await Booking.findById(entry.bookingRequest);
+                return {
+                    ...entry.toObject(),
+                    startDate: bookingDetails?.duration?.startDate
+                };
+            })
+        );
+
+        // Filter out entries without valid dates and sort by start date
+        const validEntries = entriesWithDetails.filter(entry => entry.startDate);
+        validEntries.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+        // Calculate new positions and estimated dates
+        const recalculatedEntries = await calculateEstimatedDatesForQueue(
+            queue,
+            validEntries
+        );
+
+        return recalculatedEntries;
+    } catch (error) {
+        console.error("Error recalculating queue positions:", error);
+        return queue.queue;
+    }
+};
+
+// Notify users about queue position changes
+const notifyQueuePositionChanges = async (queue, excludedBookingId = null, startIndex = 0) => {
+    try {
+        for (let i = startIndex; i < queue.queue.length; i++) {
+            const entry = queue.queue[i];
+
+            // Skip if this is the excluded booking
+            if (excludedBookingId && entry.bookingRequest.toString() === excludedBookingId.toString()) {
+                continue;
+            }
+
+            // Send notification about position change
+            await sendNotification({
+                userId: entry.bannerUser,
+                title: "Queue Position Updated",
+                message: `Your queue position has been updated to position ${entry.position}`,
+                type: "queue_position_updated",
+                relatedModel: "Booking",
+                relatedId: entry.bookingRequest,
+                actionUrl: `/bookings/${entry.bookingRequest}`,
+                actionLabel: "View Booking"
+            });
+        }
+    } catch (error) {
+        console.error("Error notifying queue position changes:", error);
+    }
+};
+
+// Notify next in queue
+const notifyNextInQueue = async (queue) => {
+    if (queue.queue.length > 0) {
+        const nextEntry = queue.queue[0];
+
+        await sendNotification({
+            userId: nextEntry.bannerUser,
+            title: "You're Next in Queue",
+            message: "Your booking is now next in line. The owner will review your request soon.",
+            type: "queue_next",
+            relatedModel: "Booking",
+            relatedId: nextEntry.bookingRequest,
+            actionUrl: `/bookings/${nextEntry.bookingRequest}`,
+            actionLabel: "View Booking"
+        });
+    }
 };
 
 // Process next in queue when current booking ends
@@ -702,57 +886,68 @@ const processNextInQueue = async (queueId) => {
             return;
         }
 
-        // Get the next booking in queue
-        const nextInQueue = queue.queue[0];
+        // Recalculate positions and estimated dates
+        const updatedQueue = await recalculateQueuePositions(queue);
+        queue.queue = updatedQueue;
 
-        // Update hoarding's next available date
-        const nextBooking = await Booking.findById(nextInQueue.bookingRequest);
-        if (nextBooking) {
-            const newNextAvailableDate = new Date(nextBooking.duration.endDate);
-            newNextAvailableDate.setDate(newNextAvailableDate.getDate() + 1); // Add buffer day
+        // Get the next booking in queue (should be position 1 after recalculation)
+        if (queue.queue.length > 0) {
+            const nextInQueue = queue.queue[0];
 
-            queue.nextAvailableDate = newNextAvailableDate;
+            // Update queue with next booking
             queue.currentBooking = nextInQueue.bookingRequest;
 
             // Remove from queue array
             queue.queue.shift();
 
-            // Update positions of remaining entries
-            queue.queue.forEach((entry, index) => {
-                entry.position = index + 1;
-                const estimatedDates = calculateEstimatedDates(queue, entry.position);
-                entry.estimatedStartDate = estimatedDates.startDate;
-                entry.estimatedEndDate = estimatedDates.endDate;
-            });
+            // Recalculate positions for remaining entries
+            const remainingEntries = await recalculateQueuePositions(queue);
+            queue.queue = remainingEntries;
 
             await queue.save();
 
-            // Notify banner user
+            // Notify banner user that their booking is now active
             await sendNotification({
                 userId: nextInQueue.bannerUser,
                 title: "Your Booking is Now Active",
-                message: "Your booking request has moved to the front of the queue and is now active",
+                message: "Your booking request has moved to the front of the queue and is now ready for owner approval",
                 type: "queue_advanced_to_current",
                 relatedModel: "Booking",
                 relatedId: nextInQueue.bookingRequest,
                 actionUrl: `/bookings/${nextInQueue.bookingRequest}`,
                 actionLabel: "View Booking"
             });
+
+            // Notify hoarding owner about new booking to review
+            const queueWithHoarding = await Queue.findById(queueId).populate("hoardingOwner");
+            if (queueWithHoarding?.hoardingOwner) {
+                await sendNotification({
+                    userId: queueWithHoarding.hoardingOwner._id,
+                    title: "New Booking Ready for Review",
+                    message: "A booking request is ready for your review",
+                    type: "booking_pending_review",
+                    relatedModel: "Booking",
+                    relatedId: nextInQueue.bookingRequest,
+                    actionUrl: `/bookings/${nextInQueue.bookingRequest}`,
+                    actionLabel: "Review Booking"
+                });
+            }
         }
     } catch (error) {
         console.error("Process next in queue error:", error);
     }
 };
 
-// Additional API for worker response
-const respondToWorkAssignment = asybcHandler(async (req, res) => {
-    const { assignmentId, status, reason } = req.body;
 
-    const workAssignment = await WorkAssignment.findById(assignmentId)
+// Additional API for worker response
+const respondToWorkRequest = asybcHandler(async (req, res) => {
+    const { requestId, RequestStatus, rejectionReason } = req.body;
+
+    const workRequest = await WorkRequest.findById(requestId)
         .populate("booking")
         .populate("worker");
 
-    if (!workAssignment) {
+    if (!workRequest) {
         return res.status(404).json({
             status: 0,
             message: "Work assignment not found"
@@ -760,37 +955,37 @@ const respondToWorkAssignment = asybcHandler(async (req, res) => {
     }
 
     // Check if user is the assigned worker
-    if (workAssignment.worker._id.toString() !== req.user.id) {
+    if (workRequest.worker._id.toString() !== req.user.id) {
         return res.status(403).json({
             status: 0,
             message: "Only assigned worker can respond"
         });
     }
 
-    workAssignment.workerResponse = {
-        status, // "Accepted", "Rejected"
+    workRequest.workerResponse = {
+        RequestStatus, // "Accepted", "Rejected"
         responseDate: new Date(),
-        reason
+        rejectionReason
     };
 
-    await workAssignment.save();
+    await workRequest.save();
 
     // Send notification to hoarding owner
     await sendNotification({
-        userId: workAssignment.assignedBy,
-        title: `Worker ${status} Assignment`,
-        message: `Worker ${workAssignment.worker.firstName} has ${status.toLowerCase()} the work assignment`,
-        type: status === "Accepted" ? "worker_approved" : "worker_rejected",
-        relatedModel: "WorkAssignment",
-        relatedId: workAssignment._id,
-        actionUrl: `/work-assignments/${workAssignment._id}`,
+        userId: workRequest.assignedBy,
+        title: `Worker ${RequestStatus} Assignment`,
+        message: `Worker ${workRequest.worker.firstName} has ${RequestStatus.toLowerCase()} the work assignment`,
+        type: RequestStatus === "Accepted" ? "worker_approved" : "worker_rejected",
+        relatedModel: "WorkRequest",
+        relatedId: workRequest._id,
+        actionUrl: `/work-assignments/${workRequest._id}`,
         actionLabel: "View Assignment"
     });
 
     // Get booking for banner user notification
-    const booking = await Booking.findById(workAssignment.booking);
+    const booking = await Booking.findById(workRequest.booking);
 
-    if (status === "Rejected") {
+    if (RequestStatus === "Rejected") {
         // Send notification to banner user to select different worker
         await sendNotification({
             userId: booking.bannerUser,
@@ -802,24 +997,24 @@ const respondToWorkAssignment = asybcHandler(async (req, res) => {
             actionUrl: `/bookings/${booking._id}`,
             actionLabel: "Select New Worker"
         });
-    } else if (status === "Accepted") {
+    } else if (RequestStatus === "Accepted") {
         // Send notification to banner user
         await sendNotification({
             userId: booking.bannerUser,
             title: "Worker Accepted Assignment",
             message: "The assigned worker has accepted the work assignment.",
             type: "worker_approved",
-            relatedModel: "WorkAssignment",
-            relatedId: workAssignment._id,
-            actionUrl: `/work-assignments/${workAssignment._id}`,
+            relatedModel: "WorkRequest",
+            relatedId: workRequest._id,
+            actionUrl: `/work-assignments/${workRequest._id}`,
             actionLabel: "View Assignment"
         });
     }
 
     res.status(200).json({
         status: 1,
-        message: `Work assignment ${status.toLowerCase()} successfully`,
-        data: workAssignment
+        message: `Work assignment ${RequestStatus.toLowerCase()} successfully`,
+        data: workRequest
     });
 });
 
@@ -853,6 +1048,6 @@ module.exports = {
     getBookingById,
     updateBooking,
     deleteBooking,
-    respondToWorkAssignment,
+    respondToWorkRequest,
     getQueueStatus
 };
