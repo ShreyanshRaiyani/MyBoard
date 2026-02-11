@@ -30,7 +30,7 @@ const createWorkRequest = async (req, res) => {
     } = req.body;
 
     // Check if user is authenticated and is banner user
-    if (req.user.userType !== "bannerUser") {
+    if (req.user.userType !== "BannerUser") {
       return res.status(403).json({
         status:0,
         message: "Only banner users can create work requests"
@@ -67,7 +67,7 @@ const createWorkRequest = async (req, res) => {
 
     // Check if worker exists and is a worker
     const worker = await User.findById(workerId);
-    if (!worker || worker.userType !== "worker") {
+    if (!worker || worker.userType !== "Worker") {
       return res.status(404).json({
         status:0,
         message: "Worker not found or invalid worker"
@@ -196,11 +196,11 @@ const getAllWorkRequests = async (req, res) => {
     const query = {};
 
     // Filter based on user type
-    if (req.user.userType === "bannerUser") {
+    if (req.user.userType === "BannerUser") {
       query.bannerUser = req.user.id;
-    } else if (req.user.userType === "worker") {
+    } else if (req.user.userType === "Worker") {
       query.worker = req.user.id;
-    } else if (req.user.userType === "hoardingOwner") {
+    } else if (req.user.userType === "HoardingOwner") {
       // Hoarding owner can see work requests for their hoardings
       const hoardings = await Hoarding.find({ owner: req.user.id });
       query.hoarding = { $in: hoardings.map(h => h._id) };

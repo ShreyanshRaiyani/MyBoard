@@ -85,7 +85,7 @@ const userSchema = new mongoose.Schema(
     userStatus: {
       type: String,
       enum: ["Active", "Inactive"],
-      default: "Inactive",
+      default: "Active",
     },
     plan: {
       type: mongoose.Schema.Types.ObjectId,

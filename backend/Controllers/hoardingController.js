@@ -25,7 +25,7 @@ const createHoarding = asyncHandler(async (req, res) => {
         }
 
         // Check if user is hoardingOwner
-        if (user.userType !== "hoardingOwner") {
+        if (user.userType !== "HoardingOwner") {
             return res.status(403).json({
                 status: 0,
                 message: "Only hoarding owners can create hoardings"
@@ -33,7 +33,7 @@ const createHoarding = asyncHandler(async (req, res) => {
         }
 
         // Check if user is verified 
-        if (user.status !== "verified") {
+        if (user.accountStatus !== "Verified") {
             return res.status(403).json({
                 status: 0,
                 message: "Only verified users can create hoardings"
@@ -259,7 +259,7 @@ const updateHoarding = asyncHandler(async (req, res) => {
         }
 
         // Check if user is the owner
-        if (hoarding.owner.toString() !== req.user.id) {
+        if (hoarding.owner._id.toString() !== req.user.id) {
             return res.status(403).json({
                 status: 0,
                 message: "You can only update your own hoardings"
@@ -481,7 +481,7 @@ const deleteHoarding = asyncHandler(async (req, res) => {
         }
 
         // Check if user is the owner or SuperAdmin
-        const isOwner = hoarding.owner.toString() === req.user.id;
+        const isOwner = hoarding.owner._id.toString() === req.user.id;
         const isSuperAdmin = req.user.userType === "SuperAdmin";
 
         if (!isOwner && !isSuperAdmin) {
@@ -612,7 +612,7 @@ const updateHoardingStatus = asyncHandler(async (req, res) => {
         }
 
         // Check if user is the owner
-        if (hoarding.owner.toString() !== req.user.id) {
+        if (hoarding.owner._id.toString() !== req.user.id) {
             return res.status(403).json({
                 status: 0,
                 message: "You can only update status of your own hoardings"
