@@ -380,6 +380,277 @@ const getBookingById = asybcHandler(async (req, res) => {
 });
 
 // 4. UPDATE BOOKING
+// const updateBooking = asybcHandler(async (req, res) => {
+//     const { id } = req.params;
+//     const updates = req.body;
+
+//     const booking = await Booking.findById(id)
+//         .populate("hoarding")
+//         .populate("bannerUser")
+//         .populate("hoardingOwner");
+
+//     if (!booking) {
+//         return res.status(404).json({
+//             status: 0,
+//             message: "Booking not found"
+//         });
+//     }
+
+//     // Check authorization based on update type
+//     if (updates.ownerResponse) {
+//         // Only hoarding owner can update owner response
+//         if (req.user.id !== booking.hoardingOwner._id.toString() && req.user.userType !== "SuperAdmin") {
+//             return res.status(403).json({
+//                 status: 0,
+//                 message: "Only hoarding owner can update booking response"
+//             });
+//         }
+
+//         const newStatus = updates.ownerResponse.status;
+
+//         // Validate status transition
+//         if (!["Approved", "Rejected", "Pending"].includes(newStatus)) {
+//             return res.status(400).json({
+//                 status: 0,
+//                 message: "Invalid status"
+//             });
+//         }
+
+//         if (newStatus === "Approved") {
+//             // Check if this booking is in queue
+//             const queue = await Queue.findOne({
+//                 hoarding: booking.hoarding._id,
+//                 "queue.bookingRequest": booking._id
+//             });
+
+//             if (queue) {
+//                 // Update queue entry status
+//                 const queueIndex = queue.queue.findIndex(
+//                     entry => entry.bookingRequest.toString() === booking._id.toString()
+//                 );
+
+//                 if (queueIndex !== -1) {
+//                     if (queueIndex === 0) {
+//                         // queue.queue[queueIndex].status = "Approved";
+//                         queue.currentBooking = booking._id;
+//                         // await queue.save();
+
+//                         // Remove from queue
+//                         queue.queue.splice(queueIndex, 1);
+
+//                         // Update hoarding status
+//                         await Hoarding.findByIdAndUpdate(booking.hoarding._id, {
+//                             status: "Booked"
+//                         });
+
+//                         // Process next in queue for future dates
+//                         // await processNextInQueue(queue._id);
+
+//                         // Set next available date
+//                         queue.nextAvailableDate = new Date(booking.duration.endDate);
+//                         queue.nextAvailableDate.setDate(queue.nextAvailableDate.getDate() + 1);
+//                     } else {
+//                         // This booking is not first in queue, just mark as approved but keep in queue
+//                         queue.queue[queueIndex].status = "Approved";
+//                     }
+//                     // Recalculate positions for remaining queue entries
+//                     const remainingEntries = await recalculateQueuePositions(queue);
+//                     queue.queue = remainingEntries;
+//                     await queue.save();
+
+//                     // Process next in queue if this was the current booking
+//                     if (queueIndex === 0 && queue.queue.length > 0) {
+//                         await notifyNextInQueue(queue);
+//                     }
+//                 }
+//             } else {
+//                 // Direct booking approval
+//                 await Hoarding.findByIdAndUpdate(booking.hoarding._id, {
+//                     status: "Booked"
+//                 });
+//             }
+
+//             // Update booking response
+//             booking.ownerResponse = {
+//                 status: newStatus,
+//                 responseDate: new Date(),
+//                 remarks: updates.ownerResponse.remarks || "",
+//                 rejectionReason: undefined
+//             };
+
+//             // Send notification using template
+//             await sendNotification({
+//                 userId: booking.bannerUser._id,
+//                 ...notificationTemplates.booking_approved(booking, booking.hoarding)
+//             });
+
+//         } else if (newStatus === "Rejected") {
+//             // Check if this booking is in queue
+//             const queue = await Queue.findOne({
+//                 hoarding: booking.hoarding._id,
+//                 "queue.bookingRequest": booking._id
+//             });
+
+//             if (queue) {
+//                 // Remove from queue and update positions
+//                 const rejectedIndex = queue.queue.findIndex(
+//                     entry => entry.bookingRequest.toString() === booking._id.toString()
+//                 );
+
+//                 if (rejectedIndex !== -1) {
+//                     // Remove rejected entry
+//                     queue.queue.splice(rejectedIndex, 1);
+
+//                     // Recalculate positions and estimated dates
+//                     const updatedQueue = await recalculateQueuePositions(queue);
+//                     queue.queue = updatedQueue;
+//                     await queue.save();
+
+//                     // If queue becomes empty and no current booking, deactivate queue
+//                     if (queue.queue.length === 0 && !queue.currentBooking) {
+//                         queue.isActive = false;
+//                         await queue.save();
+//                     }
+
+//                     // Notify next in queue if this was the first position
+//                     if (rejectedIndex === 0 && queue.queue.length > 0) {
+//                         await notifyNextInQueue(queue);
+//                     }
+                    
+//                     // Notify all affected users about position changes
+//                     await notifyQueuePositionChanges(queue, null, rejectedIndex);
+
+//                     // Update positions of remaining entries
+//                     // queue.queue.forEach((entry, index) => {
+//                     //     entry.position = index + 1;
+//                     //     // Recalculate estimated dates
+//                     //     const estimatedDates = calculateEstimatedDates(queue, entry.position);
+//                     //     entry.estimatedStartDate = estimatedDates.startDate;
+//                     //     entry.estimatedEndDate = estimatedDates.endDate;
+//                     // });
+
+//                     // await queue.save();
+
+//                     // Notify next in queue if any
+//                     // if (queue.queue.length > 0) {
+//                     //     const nextInQueue = queue.queue[0];
+//                     //     await sendNotification({
+//                     //         userId: nextInQueue.bannerUser,
+//                     //         title: "Queue Position Updated",
+//                     //         message: `Your queue position is now ${nextInQueue.position}`,
+//                     //         type: "queue_advanced",
+//                     //         relatedModel: "Booking",
+//                     //         relatedId: nextInQueue.bookingRequest,
+//                     //         actionUrl: `/bookings/${nextInQueue.bookingRequest}`,
+//                     //         actionLabel: "View Booking"
+//                     //     });
+//                     // }
+//                 }
+//             }
+
+//             // Send rejection notification using template
+//             await sendNotification({
+//                 userId: booking.bannerUser._id,
+//                 ...notificationTemplates.booking_rejected(booking, booking.hoarding, updates.ownerResponse.rejectionReason)
+//             });
+//         }
+
+//         // Update booking response
+//         booking.ownerResponse = {
+//             status: newStatus,
+//             responseDate: new Date(),
+//             remarks: updates.ownerResponse.remarks,
+//             rejectionReason: newStatus === "Rejected" ? updates.ownerResponse.rejectionReason : undefined
+//         };
+//     }
+
+//     if (updates.paymentStatus || updates.paymentDetails) {
+//         // Only banner user or admin can update payment
+//         if (req.user.id !== booking.bannerUser._id.toString() && req.user.userType !== "SuperAdmin") {
+//             return res.status(403).json({
+//                 status: 0,
+//                 message: "Only banner user can update payment information"
+//             });
+//         }
+
+//         if (updates.paymentStatus) {
+//             booking.paymentStatus = updates.paymentStatus;
+
+//             if (updates.paymentStatus === "Paid") {
+//                 booking.paymentDetails = {
+//                     ...updates.paymentDetails,
+//                     paymentDate: new Date()
+//                 };
+
+//                 // Send payment confirmation notification using template
+//                 await sendNotification({
+//                     userId: booking.hoardingOwner._id,
+//                     ...notificationTemplates.payment(
+//                         { model: "Booking", id: booking._id, url: `/bookings/${booking._id}` },
+//                         booking.pricing.totalAmount,
+//                         "Completed"
+//                     )
+//                 });
+//             }
+//         }
+//     }
+
+//     if (updates.workRequest) {
+//         // Only Banner User can assign work
+//         if (req.user.id !== booking.bannerUser._id.toString()) {
+//             return res.status(403).json({
+//                 status: 0,
+//                 message: "Only Banner User can assign work"
+//             });
+//         }
+
+//         // Check if booking is approved
+//         if (booking.ownerResponse.status !== "Approved") {
+//             return res.status(400).json({
+//                 status: 0,
+//                 message: "Cannot assign work to unapproved booking"
+//             });
+//         }
+
+//         // Create work assignment
+//         const workRequest = new WorkRequest({
+//             booking: booking._id,
+//             hoarding: booking.hoarding._id,
+//             worker: updates.workRequest.workerId,
+//             assignedBy: req.user.id,
+//             scheduledDate: updates.workRequest.scheduledDate,
+//             notes: updates.workRequest.notes
+//         });
+
+//         await workRequest.save();
+//         booking.workRequest = workRequest._id;
+
+//         // Send notification to worker
+//         await sendNotification({
+//             userId: updates.workRequest.workerId,
+//             title: "New Work Assignment",
+//             message: `You have been assigned work for booking ${booking.requestNumber}`,
+//             type: "worker_request",
+//             relatedModel: "WorkRequest",
+//             relatedId: workRequest._id,
+//             actionUrl: `/work-assignments/${workRequest._id}`,
+//             actionLabel: "View Assignment"
+//         });
+//     }
+
+//     await booking.save();
+//     const updatedBooking = await Booking.findById(id)
+//         .populate("bannerUser", "firstName lastName email mobileNumber")
+//         .populate("hoarding")
+//         .populate("hoardingOwner", "firstName lastName email mobileNumber")
+//         .populate("workRequest");
+
+//     res.status(200).json({
+//         status: 1,
+//         message: "Booking updated successfully",
+//         data: updatedBooking
+//     });
+// });
 const updateBooking = asybcHandler(async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
@@ -424,36 +695,77 @@ const updateBooking = asybcHandler(async (req, res) => {
             });
 
             if (queue) {
-                // Update queue entry status
+                // This booking is in queue
                 const queueIndex = queue.queue.findIndex(
                     entry => entry.bookingRequest.toString() === booking._id.toString()
                 );
 
                 if (queueIndex !== -1) {
-                    queue.queue[queueIndex].status = "Approved";
-                    queue.currentBooking = booking._id;
+                    // Check if this is the first in queue
+                    if (queueIndex === 0) {
+                        // This is the next booking to be activated
+                        queue.currentBooking = booking._id;
+                        
+                        // Remove from queue
+                        queue.queue.splice(queueIndex, 1);
+                        
+                        // Update hoarding status
+                        await Hoarding.findByIdAndUpdate(booking.hoarding._id, {
+                            status: "Booked"
+                        });
+                        
+                        // Set next available date
+                        queue.nextAvailableDate = new Date(booking.duration.endDate);
+                        queue.nextAvailableDate.setDate(queue.nextAvailableDate.getDate() + 1);
+                    } else {
+                        // This booking is not first in queue, just mark as approved but keep in queue
+                        queue.queue[queueIndex].status = "Approved";
+                    }
+
+                    // Recalculate positions for remaining queue entries
+                    const remainingEntries = await recalculateQueuePositions(queue);
+                    queue.queue = remainingEntries;
                     await queue.save();
 
-                    // Update hoarding status
-                    await Hoarding.findByIdAndUpdate(booking.hoarding._id, {
-                        status: "Booked"
-                    });
-
-                    // Process next in queue for future dates
-                    await processNextInQueue(queue._id);
+                    // Process next in queue if this was the current booking
+                    if (queueIndex === 0 && queue.queue.length > 0) {
+                        await notifyNextInQueue(queue);
+                    }
                 }
             } else {
-                // Direct booking approval
+                // Direct booking approval (not in queue)
                 await Hoarding.findByIdAndUpdate(booking.hoarding._id, {
                     status: "Booked"
                 });
             }
 
+            // Update booking response
+            booking.ownerResponse = {
+                status: newStatus,
+                responseDate: new Date(),
+                remarks: updates.ownerResponse.remarks || "",
+                rejectionReason: undefined
+            };
+
             // Send notification using template
-            await sendNotification({
-                userId: booking.bannerUser._id,
-                ...notificationTemplates.booking_approved(booking, booking.hoarding)
-            });
+            if (typeof notificationTemplates?.booking_approved === 'function') {
+                await sendNotification({
+                    userId: booking.bannerUser._id,
+                    ...notificationTemplates.booking_approved(booking, booking.hoarding)
+                });
+            } else {
+                // Fallback notification
+                await sendNotification({
+                    userId: booking.bannerUser._id,
+                    title: "Booking Approved",
+                    message: `Your booking for ${booking.hoarding?.hoardingName || 'hoarding'} has been approved`,
+                    type: "booking_approved",
+                    relatedModel: "Booking",
+                    relatedId: booking._id,
+                    actionUrl: `/bookings/${booking._id}`,
+                    actionLabel: "View Booking"
+                });
+            }
 
         } else if (newStatus === "Rejected") {
             // Check if this booking is in queue
@@ -463,7 +775,7 @@ const updateBooking = asybcHandler(async (req, res) => {
             });
 
             if (queue) {
-                // Remove from queue and update positions
+                // Remove from queue
                 const rejectedIndex = queue.queue.findIndex(
                     entry => entry.bookingRequest.toString() === booking._id.toString()
                 );
@@ -472,50 +784,81 @@ const updateBooking = asybcHandler(async (req, res) => {
                     // Remove rejected entry
                     queue.queue.splice(rejectedIndex, 1);
 
-                    // Update positions of remaining entries
-                    queue.queue.forEach((entry, index) => {
-                        entry.position = index + 1;
-                        // Recalculate estimated dates
-                        const estimatedDates = calculateEstimatedDates(queue, entry.position);
-                        entry.estimatedStartDate = estimatedDates.startDate;
-                        entry.estimatedEndDate = estimatedDates.endDate;
-                    });
-
+                    // Recalculate positions and estimated dates
+                    const updatedQueue = await recalculateQueuePositions(queue);
+                    queue.queue = updatedQueue;
                     await queue.save();
 
-                    // Notify next in queue if any
-                    if (queue.queue.length > 0) {
-                        const nextInQueue = queue.queue[0];
-                        await sendNotification({
-                            userId: nextInQueue.bannerUser,
-                            title: "Queue Position Updated",
-                            message: `Your queue position is now ${nextInQueue.position}`,
-                            type: "queue_advanced",
-                            relatedModel: "Booking",
-                            relatedId: nextInQueue.bookingRequest,
-                            actionUrl: `/bookings/${nextInQueue.bookingRequest}`,
-                            actionLabel: "View Booking"
-                        });
+                    // If queue becomes empty and no current booking, deactivate queue
+                    if (queue.queue.length === 0 && !queue.currentBooking) {
+                        queue.isActive = false;
+                        await queue.save();
                     }
+
+                    // Notify next in queue if this was the first position
+                    if (rejectedIndex === 0 && queue.queue.length > 0) {
+                        await notifyNextInQueue(queue);
+                    }
+                    
+                    // Notify all affected users about position changes
+                    await notifyQueuePositionChanges(queue, null, rejectedIndex);
                 }
             }
 
-            // Send rejection notification using template
-            await sendNotification({
-                userId: booking.bannerUser._id,
-                ...notificationTemplates.booking_rejected(booking, booking.hoarding, updates.ownerResponse.rejectionReason)
-            });
+            // Update booking response
+            booking.ownerResponse = {
+                status: newStatus,
+                responseDate: new Date(),
+                remarks: updates.ownerResponse.remarks || "",
+                rejectionReason: updates.ownerResponse.rejectionReason || "No reason provided"
+            };
+
+            // Send rejection notification
+            if (typeof notificationTemplates?.booking_rejected === 'function') {
+                await sendNotification({
+                    userId: booking.bannerUser._id,
+                    ...notificationTemplates.booking_rejected(booking, booking.hoarding, updates.ownerResponse.rejectionReason)
+                });
+            } else {
+                await sendNotification({
+                    userId: booking.bannerUser._id,
+                    title: "Booking Rejected",
+                    message: `Your booking request has been rejected${updates.ownerResponse.rejectionReason ? `: ${updates.ownerResponse.rejectionReason}` : ''}`,
+                    type: "booking_rejected",
+                    relatedModel: "Booking",
+                    relatedId: booking._id,
+                    actionUrl: `/bookings/${booking._id}`,
+                    actionLabel: "View Details"
+                });
+            }
+        } else if (newStatus === "Pending") {
+            // Update booking response to pending
+            booking.ownerResponse = {
+                status: newStatus,
+                responseDate: new Date(),
+                remarks: updates.ownerResponse.remarks || "",
+                rejectionReason: undefined
+            };
         }
 
-        // Update booking response
-        booking.ownerResponse = {
-            status: newStatus,
-            responseDate: new Date(),
-            remarks: updates.ownerResponse.remarks,
-            rejectionReason: newStatus === "Rejected" ? updates.ownerResponse.rejectionReason : undefined
-        };
+        // Save the booking
+        await booking.save();
+        
+        // Return the updated booking
+        const updatedBooking = await Booking.findById(id)
+            .populate("bannerUser", "firstName lastName email mobileNumber")
+            .populate("hoarding")
+            .populate("hoardingOwner", "firstName lastName email mobileNumber")
+            .populate("workRequest");
+
+        return res.status(200).json({
+            status: 1,
+            message: `Booking ${newStatus.toLowerCase()} successfully`,
+            data: updatedBooking
+        });
     }
 
+    // Handle payment status updates
     if (updates.paymentStatus || updates.paymentDetails) {
         // Only banner user or admin can update payment
         if (req.user.id !== booking.bannerUser._id.toString() && req.user.userType !== "SuperAdmin") {
@@ -530,77 +873,124 @@ const updateBooking = asybcHandler(async (req, res) => {
 
             if (updates.paymentStatus === "Paid") {
                 booking.paymentDetails = {
-                    ...updates.paymentDetails,
-                    paymentDate: new Date()
+                    transactionId: updates.paymentDetails?.transactionId || `TXN${Date.now()}`,
+                    paymentMethod: updates.paymentDetails?.paymentMethod || "Online",
+                    paymentDate: new Date(),
+                    amount: updates.paymentDetails?.amount || booking.pricing?.totalAmount,
+                    status: "Completed"
                 };
 
-                // Send payment confirmation notification using template
-                await sendNotification({
-                    userId: booking.hoardingOwner._id,
-                    ...notificationTemplates.payment(
-                        { model: "Booking", id: booking._id, url: `/bookings/${booking._id}` },
-                        booking.pricing.totalAmount,
-                        "Completed"
-                    )
-                });
+                // Send payment confirmation notification
+                if (typeof notificationTemplates?.payment === 'function') {
+                    await sendNotification({
+                        userId: booking.hoardingOwner._id,
+                        ...notificationTemplates.payment(
+                            { model: "Booking", id: booking._id, url: `/bookings/${booking._id}` },
+                            booking.pricing?.totalAmount || 0,
+                            "Completed"
+                        )
+                    });
+                } else {
+                    await sendNotification({
+                        userId: booking.hoardingOwner._id,
+                        title: "Payment Received",
+                        message: `Payment of ₹${booking.pricing?.totalAmount || 0} has been received for booking ${booking.requestNumber}`,
+                        type: "payment_received",
+                        relatedModel: "Booking",
+                        relatedId: booking._id,
+                        actionUrl: `/bookings/${booking._id}`,
+                        actionLabel: "View Payment"
+                    });
+                }
             }
         }
-    }
 
-    if (updates.workRequest) {
-        // Only hoarding owner can assign work
-        if (req.user.id !== booking.hoardingOwner._id.toString()) {
-            return res.status(403).json({
-                status: 0,
-                message: "Only hoarding owner can assign work"
-            });
-        }
+        await booking.save();
+        
+        const updatedBooking = await Booking.findById(id)
+            .populate("bannerUser", "firstName lastName email mobileNumber")
+            .populate("hoarding")
+            .populate("hoardingOwner", "firstName lastName email mobileNumber")
+            .populate("workRequest");
 
-        // Check if booking is approved
-        if (booking.ownerResponse.status !== "Approved") {
-            return res.status(400).json({
-                status: 0,
-                message: "Cannot assign work to unapproved booking"
-            });
-        }
-
-        // Create work assignment
-        const workRequest = new WorkRequest({
-            booking: booking._id,
-            hoarding: booking.hoarding._id,
-            worker: updates.workRequest.workerId,
-            assignedBy: req.user.id,
-            scheduledDate: updates.workRequest.scheduledDate,
-            notes: updates.workRequest.notes
-        });
-
-        await workRequest.save();
-        booking.workRequest = workRequest._id;
-
-        // Send notification to worker
-        await sendNotification({
-            userId: updates.workRequest.workerId,
-            title: "New Work Assignment",
-            message: `You have been assigned work for booking ${booking.requestNumber}`,
-            type: "worker_request",
-            relatedModel: "WorkRequest",
-            relatedId: workRequest._id,
-            actionUrl: `/work-assignments/${workRequest._id}`,
-            actionLabel: "View Assignment"
+        return res.status(200).json({
+            status: 1,
+            message: "Payment status updated successfully",
+            data: updatedBooking
         });
     }
 
-    await booking.save();
-    const updatedBooking = await Booking.findById(id)
-        .populate("bannerUser", "firstName lastName email mobileNumber")
-        .populate("hoarding")
-        .populate("hoardingOwner", "firstName lastName email mobileNumber")
-        .populate("workRequest");
+    // Handle work request assignment
+    // if (updates.workRequest) {
+    //     // Only Banner User can assign work
+    //     if (req.user.id !== booking.bannerUser._id.toString() && req.user.userType !== "SuperAdmin") {
+    //         return res.status(403).json({
+    //             status: 0,
+    //             message: "Only Banner User can assign work"
+    //         });
+    //     }
 
-    res.status(200).json({
-        status: 1,
-        message: "Booking updated successfully",
-        data: updatedBooking
+    //     // Check if booking is approved
+    //     if (booking.ownerResponse.status !== "Approved") {
+    //         return res.status(400).json({
+    //             status: 0,
+    //             message: "Cannot assign work to unapproved booking"
+    //         });
+    //     }
+
+    //     // Check if worker exists
+    //     const worker = await User.findById(updates.workRequest.workerId);
+    //     if (!worker) {
+    //         return res.status(404).json({
+    //             status: 0,
+    //             message: "Worker not found"
+    //         });
+    //     }
+
+    //     // Create work assignment
+    //     const workRequest = new WorkRequest({
+    //         booking: booking._id,
+    //         hoarding: booking.hoarding._id,
+    //         worker: updates.workRequest.workerId,
+    //         assignedBy: req.user.id,
+    //         scheduledDate: updates.workRequest.scheduledDate || new Date(),
+    //         notes: updates.workRequest.notes || "",
+    //         status: "Pending"
+    //     });
+
+    //     await workRequest.save();
+    //     booking.workRequest = workRequest._id;
+    //     await booking.save();
+
+    //     // Send notification to worker
+    //     await sendNotification({
+    //         userId: updates.workRequest.workerId,
+    //         title: "New Work Assignment",
+    //         message: `You have been assigned work for booking ${booking.requestNumber}`,
+    //         type: "worker_request",
+    //         relatedModel: "WorkRequest",
+    //         relatedId: workRequest._id,
+    //         actionUrl: `/work-assignments/${workRequest._id}`,
+    //         actionLabel: "View Assignment"
+    //     });
+
+    //     const updatedBooking = await Booking.findById(id)
+    //         .populate("bannerUser", "firstName lastName email mobileNumber")
+    //         .populate("hoarding")
+    //         .populate("hoardingOwner", "firstName lastName email mobileNumber")
+    //         .populate("workRequest");
+
+    //     return res.status(200).json({
+    //         status: 1,
+    //         message: "Work assigned successfully",
+    //         data: updatedBooking
+    //     });
+    // }
+
+    // If no valid updates were provided
+    return res.status(400).json({
+        status: 0,
+        message: "No valid updates provided"
     });
 });
 
@@ -941,10 +1331,10 @@ const processNextInQueue = async (queueId) => {
 
 // Additional API for worker response
 const respondToWorkRequest = asybcHandler(async (req, res) => {
-    const { requestId, RequestStatus, rejectionReason } = req.body;
+    const { requestId, status, rejectionReason } = req.body;
 
     const workRequest = await WorkRequest.findById(requestId)
-        .populate("booking")
+        .populate("bannerUser")
         .populate("worker");
 
     if (!workRequest) {
@@ -963,7 +1353,7 @@ const respondToWorkRequest = asybcHandler(async (req, res) => {
     }
 
     workRequest.workerResponse = {
-        RequestStatus, // "Accepted", "Rejected"
+        status, // "Accepted", "Rejected"
         responseDate: new Date(),
         rejectionReason
     };
@@ -971,49 +1361,48 @@ const respondToWorkRequest = asybcHandler(async (req, res) => {
     await workRequest.save();
 
     // Send notification to hoarding owner
-    await sendNotification({
-        userId: workRequest.assignedBy,
-        title: `Worker ${RequestStatus} Assignment`,
-        message: `Worker ${workRequest.worker.firstName} has ${RequestStatus.toLowerCase()} the work assignment`,
-        type: RequestStatus === "Accepted" ? "worker_approved" : "worker_rejected",
-        relatedModel: "WorkRequest",
-        relatedId: workRequest._id,
-        actionUrl: `/work-assignments/${workRequest._id}`,
-        actionLabel: "View Assignment"
-    });
+    // await sendNotification({
+    //     userId: workRequest.bannerUser._id,
+    //     title: `Worker ${status} Assignment`,
+    //     message: `Worker ${workRequest.worker.firstName} has ${status.toLowerCase()} the work assignment`,
+    //     type: status === "Accepted" ? "worker_approved" : "worker_rejected",
+    //     relatedModel: "WorkRequest",
+    //     relatedId: workRequest._id,
+    //     actionUrl: `/work-assignments/${workRequest._id}`,
+    //     actionLabel: "View Assignment"
+    // });
 
     // Get booking for banner user notification
-    const booking = await Booking.findById(workRequest.booking);
-
-    if (RequestStatus === "Rejected") {
+    // const booking = await Booking.findById(workRequest.bannerUser._id);
+    if (status === "Rejected") {
         // Send notification to banner user to select different worker
         await sendNotification({
-            userId: booking.bannerUser,
+            userId: workRequest.bannerUser._id,
             title: "Worker Rejected Assignment",
             message: "The assigned worker has rejected the assignment. Please select a different worker.",
             type: "worker_rejected",
             relatedModel: "Booking",
-            relatedId: booking._id,
-            actionUrl: `/bookings/${booking._id}`,
+            relatedId: workRequest.bannerRequest._id,
+            actionUrl: `/booking/${workRequest.bannerRequest._id}`,
             actionLabel: "Select New Worker"
         });
-    } else if (RequestStatus === "Accepted") {
+    } else if (status === "Accepted") {
         // Send notification to banner user
         await sendNotification({
-            userId: booking.bannerUser,
+            userId: workRequest.bannerUser._id,
             title: "Worker Accepted Assignment",
             message: "The assigned worker has accepted the work assignment.",
             type: "worker_approved",
             relatedModel: "WorkRequest",
             relatedId: workRequest._id,
-            actionUrl: `/work-assignments/${workRequest._id}`,
+            actionUrl: `/workerRequest/${workRequest._id}`,
             actionLabel: "View Assignment"
         });
     }
 
     res.status(200).json({
         status: 1,
-        message: `Work assignment ${RequestStatus.toLowerCase()} successfully`,
+        message: `Work assignment ${status.toLowerCase()} successfully`,
         data: workRequest
     });
 });
