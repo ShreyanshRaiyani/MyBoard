@@ -107,7 +107,7 @@ const getQueueById = async (req, res) => {
 // Get user's position in queue (for banner users)
 const getMyQueuePositions = async (req, res) => {
   try {
-    if (req.user.userType !== "bannerUser") {
+    if (req.user.userType !== "BannerUser") {
       return res.status(403).json({
         status:0,
         message: "Only banner users can check their queue positions"
