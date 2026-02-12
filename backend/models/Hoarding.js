@@ -44,9 +44,9 @@ const hoardingSchema = new mongoose.Schema(
     },
     dimensions: {
       width: { type: Number, required: true },
-      height: { type: Number, required: true }, 
-      area: { type: Number }, 
-      unit:{type:mongoose.Schema.Types.ObjectId, ref: 'Unit'}
+      height: { type: Number, required: true },
+      area: { type: Number },
+      unit: { type: mongoose.Schema.Types.ObjectId, ref: 'Unit' }
     },
     type: {
       type: String,
@@ -85,6 +85,19 @@ const hoardingSchema = new mongoose.Schema(
     totalBookings: {
       type: Number,
       default: 0,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false
+    },
+    deletedAt: {
+      type: Date,
+      default: null
+    },
+    deletedBy: {
+      type: String,
+      default: null,
+      ref: 'User'
     },
   },
   { timestamps: true }

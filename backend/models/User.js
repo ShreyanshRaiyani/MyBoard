@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, select: false },
     birthDate: { type: Date },
     mobileNumber: { type: String, unique: true, sparse: true, index: true },
-    alternateMobileNumber: { type: String }, 
+    alternateMobileNumber: { type: String },
     whatsappNumber: { type: String },
     phone_code: { type: String },
     iso_code: { type: String },
@@ -68,7 +68,7 @@ const userSchema = new mongoose.Schema(
     aadharBack: { type: String },
     pan_number: { type: String },
     panimage: { type: String },
-    
+
     // Worker specific fields
     workerType: {
       type: String,
@@ -81,7 +81,7 @@ const userSchema = new mongoose.Schema(
       enum: ["Available", "Busy", "Unavailable"],
       default: "Available",
     },
-    
+
     userStatus: {
       type: String,
       enum: ["Active", "Inactive"],
@@ -91,7 +91,7 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Plan",
     },
-    
+
     // Added for rating system
     averageRating: {
       type: Number,
@@ -111,10 +111,24 @@ function autoPopulate(next) {
   if (this.options && this.options.skipUserAutoPopulate) {
     return next();
   }
-  this.populate("address.city");
-  this.populate("address.state");
-  this.populate("address.country");
-  this.populate("plan");
+  this.populate({
+    path: "address.city",
+    select: "_id name"
+  });
+
+  this.populate({
+    path: "address.state",
+    select: "_id name"
+  });
+
+  this.populate({
+    path: "address.country",
+    select: "_id name"
+  });
+  this.populate({
+    path: "plan",
+    select: "_id name"
+  });
   next();
 }
 
