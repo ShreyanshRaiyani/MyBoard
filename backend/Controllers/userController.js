@@ -7,8 +7,13 @@ const generateToken = require('../middleware/generatetoken');
 const { uploadImageReturnUrl, deleteFromS3 } = require("./imageController");
 const path = require("path");
 const Device = require("../models/Device");
-const {sendResetPasswordEmail} = require('../middleware/sendmail')
+const Plan = require("../models/Plan");
+const { sendResetPasswordEmail } = require('../middleware/sendmail');
 
+/**
+ * User Registration Controller
+ * Handles registration for different user types with appropriate validations
+ */
 const signUp = asyncHandler(async (req, res) => {
     try {
         console.log("SignUp request body:", req.body);
@@ -28,31 +33,22 @@ const signUp = asyncHandler(async (req, res) => {
             address,
             business,
             gstNumber,
-            // Worker specific fields
             workerType,
             experience,
             skills,
-            // Plan
             plan,
             password,
         } = req.body;
 
-        // 1. Validation
+        // ========== VALIDATION ==========
         if (!firstName || !email || !mobileNumber || !userType) {
             return res.status(200).json({
                 Status: 0,
-                Message:
-                    "Please provide all required fields: firstName, email, mobileNumber, userType",
+                Message: "Please provide all required fields: firstName, email, mobileNumber, userType",
             });
         }
 
-        // Validate userType
-        const validUserTypes = [
-            "SuperAdmin",
-            "HoardingOwner",
-            "BannerUser",
-            "Worker",
-        ];
+        const validUserTypes = ["SuperAdmin", "HoardingOwner", "BannerUser", "Worker"];
         if (!validUserTypes.includes(userType)) {
             return res.status(200).json({
                 Status: 0,
@@ -60,7 +56,7 @@ const signUp = asyncHandler(async (req, res) => {
             });
         }
 
-        // Check for existing user
+        // ========== CHECK EXISTING USER ==========
         const existingUser = await User.findOne({
             $or: [{ email }, { mobileNumber }],
         });
@@ -72,7 +68,7 @@ const signUp = asyncHandler(async (req, res) => {
             });
         }
 
-        // 3. Handle password for SuperAdmin
+        // ========== HANDLE PASSWORD/OTP ==========
         let hashedPassword = null;
         let otp = null;
 
@@ -93,14 +89,30 @@ const signUp = asyncHandler(async (req, res) => {
 
             hashedPassword = await bcrypt.hash(password, 10);
         } else {
-            // Generate OTP for non-SuperAdmin users
             otp = Math.floor(1000 + Math.random() * 9000);
-            console.log("OTP", otp)
             console.log(`OTP for ${mobileNumber}: ${otp}`);
-            // In production: send OTP via SMS/Email
         }
 
-        // 4. Prepare user data
+        // ========== HANDLE PLAN LOGIC ==========
+        let planId = null;
+
+        if (userType === "HoardingOwner" || userType === "BannerUser") {
+            const defaultPlan = await Plan.findOne({
+                isDefault: true,
+                userType: userType
+            });
+
+            if (defaultPlan) {
+                planId = defaultPlan._id;
+                console.log(`Default plan assigned for ${userType}:`, defaultPlan.name);
+            } else {
+                console.log(`No default plan found for ${userType}`);
+            }
+        } else if (plan) {
+            planId = mongoose.Types.ObjectId(plan);
+        }
+
+        // ========== PREPARE USER DATA ==========
         const userData = {
             firstName,
             lastName,
@@ -119,7 +131,7 @@ const signUp = asyncHandler(async (req, res) => {
             workerType,
             experience,
             skills,
-            plan: plan ? mongoose.Types.ObjectId(plan) : undefined,
+            plan: planId,
             accountStatus: userType === "SuperAdmin" ? "Verified" : "Pending",
             emailverified: userType === "SuperAdmin" ? true : false,
         };
@@ -131,10 +143,10 @@ const signUp = asyncHandler(async (req, res) => {
             userData.otp = otp;
         }
 
-        // Create user
+        // ========== CREATE USER ==========
         const user = await User.create(userData);
 
-        // Generate JWT token
+        // Generate JWT token for SuperAdmin
         let token = null;
         if (userType === "SuperAdmin") {
             token = generateToken(user._id, user.userType);
@@ -143,22 +155,23 @@ const signUp = asyncHandler(async (req, res) => {
         // Remove sensitive data from response
         const userResponse = user.toJSON();
 
-        // Send response
+        // ========== SEND RESPONSE ==========
         res.status(201).json({
             Status: 1,
-            Message:
-                userType === "SuperAdmin"
-                    ? "SuperAdmin registered successfully"
+            Message: userType === "SuperAdmin"
+                ? "SuperAdmin registered successfully"
+                : userType === "HoardingOwner" || userType === "BannerUser"
+                    ? `${userType} registered successfully with default plan. OTP sent for verification.`
                     : "User registered successfully. OTP sent for verification.",
             data: {
                 user: userResponse,
                 token: token || undefined,
+                defaultPlanAssigned: (userType === "HoardingOwner" || userType === "BannerUser") && planId ? true : false
             },
         });
     } catch (error) {
         console.error("SignUp error:", error);
 
-        // Handle duplicate key error
         if (error.code === 11000) {
             const field = Object.keys(error.keyPattern)[0];
             return res.status(200).json({
@@ -175,14 +188,17 @@ const signUp = asyncHandler(async (req, res) => {
     }
 });
 
+/**
+ * User Login Controller
+ * Handles both password-based and OTP-based login
+ */
 const login = asyncHandler(async (req, res) => {
     try {
         console.log("Login request body:", req.body);
 
-        const { email, mobileNumber, password, otp } = req.body;
+        const { email, password, otp } = req.body;
 
-
-        // Validate input
+        // ========== VALIDATION ==========
         if (!email) {
             return res.status(200).json({
                 Status: 0,
@@ -190,7 +206,7 @@ const login = asyncHandler(async (req, res) => {
             });
         }
 
-        // Find user
+        // ========== FIND USER ==========
         const user = await User.findOne({ email }).select("+password");
 
         if (!user) {
@@ -200,7 +216,7 @@ const login = asyncHandler(async (req, res) => {
             });
         }
 
-        // Check user status
+        // ========== CHECK USER STATUS ==========
         if (user.userStatus === "Inactive") {
             return res.status(200).json({
                 Status: 0,
@@ -208,6 +224,7 @@ const login = asyncHandler(async (req, res) => {
             });
         }
 
+        // ========== OTP BASED LOGIN ==========
         if (email && !password) {
             const otp = Math.floor(1000 + Math.random() * 9000);
             const verification = "confirm your email";
@@ -217,25 +234,28 @@ const login = asyncHandler(async (req, res) => {
             await user.save();
         }
 
+        // ========== PASSWORD BASED LOGIN ==========
         if (email && password) {
-            const isPasswordCorrect = await bcrypt.compare(password, user.password)
+            const isPasswordCorrect = await bcrypt.compare(password, user.password);
             if (!isPasswordCorrect) {
-                return res.status.json({
+                return res.status(200).json({
                     Status: 0,
-                    Message: "Your PassWord is Worng"
-                })
+                    Message: "Your password is incorrect",
+                });
             }
         }
 
-        const populateuser = await User.findById(user.id).select("-emailverified")
+        // ========== FETCH UPDATED USER ==========
+        const populateuser = await User.findById(user.id).select("-emailverified");
 
-
-        // Remove sensitive data
+        // Remove null/undefined fields
         Object.keys(populateuser).forEach((key) => {
-            if (populateuser[key] === null || populateuser[key] == undefined)
-                delete populateuser[key]
-        })
+            if (populateuser[key] === null || populateuser[key] == undefined) {
+                delete populateuser[key];
+            }
+        });
 
+        // ========== SEND RESPONSE ==========
         res.status(200).json({
             Status: 1,
             Message: "Login successful",
@@ -256,10 +276,15 @@ const login = asyncHandler(async (req, res) => {
     }
 });
 
+/**
+ * OTP Verification Controller
+ * Verifies user's email using OTP
+ */
 const verifyOTP = asyncHandler(async (req, res) => {
     try {
         const { email, otp } = req.body;
 
+        // ========== VALIDATION ==========
         if (!email || !otp) {
             return res.status(200).json({
                 Status: 0,
@@ -267,6 +292,7 @@ const verifyOTP = asyncHandler(async (req, res) => {
             });
         }
 
+        // ========== FIND USER ==========
         const user = await User.findOne({ email }).select('+otp');
 
         if (!user) {
@@ -276,6 +302,7 @@ const verifyOTP = asyncHandler(async (req, res) => {
             });
         }
 
+        // ========== VERIFY OTP ==========
         console.log("Verifying OTP:", { providedOtp: otp, userOtp: user.otp });
         if (user.otp !== otp) {
             return res.status(200).json({
@@ -284,19 +311,20 @@ const verifyOTP = asyncHandler(async (req, res) => {
             });
         }
 
-        // Update user
+        // ========== UPDATE USER ==========
         user.emailverified = true;
-        user.otp = null; // Clear OTP after successful verification
+        user.otp = null;
         await user.save();
 
-        // Generate new token
+        // ========== GENERATE TOKEN ==========
         const userToken = generateToken(user._id);
 
-        // Fetch user without sensitive data
+        // ========== FETCH UPDATED USER ==========
         const populatedUser = await User.findById(user._id)
             .select('-password -otp -resettoken -resettokentime')
             .exec();
 
+        // ========== SEND RESPONSE ==========
         return res.status(200).json({
             Status: 1,
             Message: "Email verified successfully",
@@ -313,11 +341,15 @@ const verifyOTP = asyncHandler(async (req, res) => {
     }
 });
 
+/**
+ * Resend OTP Controller
+ * Generates and sends new OTP to user
+ */
 const resendOTP = asyncHandler(async (req, res) => {
     try {
         const { email, mobileNumber } = req.body;
 
-        // Find user by email or mobile number
+        // ========== BUILD QUERY ==========
         let query = {};
         if (email) {
             query.email = email;
@@ -330,6 +362,7 @@ const resendOTP = asyncHandler(async (req, res) => {
             });
         }
 
+        // ========== FIND USER ==========
         const user = await User.findOne(query);
 
         if (!user) {
@@ -339,7 +372,7 @@ const resendOTP = asyncHandler(async (req, res) => {
             });
         }
 
-        // SuperAdmin doesn't use OTP
+        // ========== CHECK USER TYPE ==========
         if (user.userType === "SuperAdmin") {
             return res.status(200).json({
                 Status: 0,
@@ -347,18 +380,19 @@ const resendOTP = asyncHandler(async (req, res) => {
             });
         }
 
-        // Generate new OTP
+        // ========== GENERATE NEW OTP ==========
+        const generateOTP = () => Math.floor(1000 + Math.random() * 9000);
         const otp = generateOTP();
         user.otp = otp;
         await user.save();
 
         console.log(`New OTP for ${mobileNumber || email}: ${otp}`);
-        // In production: Send OTP via SMS/Email
 
+        // ========== SEND RESPONSE ==========
         res.status(200).json({
             Status: 1,
             Message: "OTP sent successfully",
-            otp, // For testing only - remove in production
+            otp, // TODO: Remove in production
         });
     } catch (error) {
         console.error("Resend OTP error:", error);
@@ -370,6 +404,10 @@ const resendOTP = asyncHandler(async (req, res) => {
     }
 });
 
+/**
+ * Get All Users Controller
+ * Retrieves users with pagination, filtering, and search
+ */
 const getAllUsers = asyncHandler(async (req, res) => {
     try {
         const {
@@ -381,14 +419,13 @@ const getAllUsers = asyncHandler(async (req, res) => {
             search,
         } = req.query;
 
+        // ========== BUILD FILTER ==========
         const filter = {};
 
-        // Apply filters
         if (userType) filter.userType = userType;
         if (userStatus) filter.userStatus = userStatus;
         if (accountStatus) filter.accountStatus = accountStatus;
 
-        // Search functionality
         if (search) {
             filter.$or = [
                 { firstName: { $regex: search, $options: "i" } },
@@ -405,7 +442,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
             sort: { createdAt: -1 },
         };
 
-        // Using paginate if plugin is installed, otherwise use find
+        // ========== FETCH USERS ==========
         if (User.paginate) {
             const users = await User.paginate(filter, options);
 
@@ -447,15 +484,16 @@ const getAllUsers = asyncHandler(async (req, res) => {
     }
 });
 
+/**
+ * Get User By ID Controller
+ * Retrieves single user with populated references
+ */
 const getUserById = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
 
+        // ========== FETCH USER ==========
         const user = await User.findById(id)
-            .populate("address.city")
-            .populate("address.state")
-            .populate("address.country")
-            .populate("plan");
 
         if (!user) {
             return res.status(200).json({
@@ -464,6 +502,7 @@ const getUserById = asyncHandler(async (req, res) => {
             });
         }
 
+        // ========== SEND RESPONSE ==========
         res.status(200).json({
             Status: 1,
             data: user,
@@ -478,12 +517,16 @@ const getUserById = asyncHandler(async (req, res) => {
     }
 });
 
+/**
+ * Update User Controller
+ * Handles user updates with role-based permissions
+ */
 const updateUser = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
 
-        // Find user to update
+        // ========== FIND USER TO UPDATE ==========
         const user = await User.findById(id);
         if (!user) {
             return res.status(200).json({
@@ -492,8 +535,11 @@ const updateUser = asyncHandler(async (req, res) => {
             });
         }
 
-        // Find current user making the request
-        const currentUser = await User.findById(req.user.userId);
+        // ========== GET CURRENT USER ==========
+        const currentUserId = req.userId || (req.user && req.user._id);
+        const currentUser = currentUserId ? await User.findById(currentUserId) : null;
+        console.log("Current user:", currentUser);
+
         if (!currentUser) {
             return res.status(200).json({
                 Status: 0,
@@ -505,22 +551,18 @@ const updateUser = asyncHandler(async (req, res) => {
         const isWorker = currentUser.userType === "Worker";
         const isUpdatingSelf = currentUser._id.toString() === id;
 
-        // Restrict sensitive fields based on user type
+        // ========== RESTRICT SENSITIVE FIELDS ==========
         delete updates.email;
         delete updates.otp;
         delete updates.resettoken;
         delete updates.resettokentime;
-        delete updates.userType; // Only SuperAdmin should be able to change this
+        delete updates.userType;
 
-        // Allow accountStatus update only for SuperAdmin
         if (!isSuperAdmin) {
             delete updates.accountStatus;
         }
 
-        // Check permissions for worker-specific fields
         const canUpdateWorkerFields = isSuperAdmin || (isWorker && isUpdatingSelf);
-
-        // If non-SuperAdmin/Worker is trying to update worker fields, remove them
         if (!canUpdateWorkerFields) {
             delete updates.workerType;
             delete updates.experience;
@@ -530,18 +572,17 @@ const updateUser = asyncHandler(async (req, res) => {
             delete updates.totalRatings;
         }
 
-        // Only SuperAdmin can update these sensitive fields
         if (!isSuperAdmin) {
             delete updates.averageRating;
             delete updates.totalRatings;
         }
 
-        // Only assign default plan if user is verified
+        // ========== HANDLE DEFAULT PLAN ==========
         if (user.accountStatus === 'Verified') {
             if (user.userType === 'HoardingOwner' || user.userType === 'BannerUser') {
                 const defaultPlan = await Plan.findOne({
                     default: true,
-                    applicableUserTypes: user.userType // Plan must be applicable to this user type
+                    applicableUserTypes: user.userType
                 });
 
                 if (defaultPlan) {
@@ -550,14 +591,14 @@ const updateUser = asyncHandler(async (req, res) => {
                 }
             }
         }
-        // Handle image uploads
+
+        // ========== HANDLE IMAGE UPLOADS ==========
         const uploadedFiles = req.uploadedFiles || {};
         const toUpload = [];
         const filesToDelete = [];
 
-        // Profile Picture 
+        // Profile Picture
         if (uploadedFiles.profilepic) {
-            // User must be updating their own profile or be SuperAdmin
             if (!isUpdatingSelf && !isSuperAdmin) {
                 return res.status(200).json({
                     Status: 0,
@@ -570,7 +611,6 @@ const updateUser = asyncHandler(async (req, res) => {
                 file: uploadedFiles.profilepic,
                 prefix: "profile",
             });
-            // Store old file for deletion
             if (user.profilepic && user.profilepic !== "generaluserpic.png") {
                 filesToDelete.push(user.profilepic);
             }
@@ -578,8 +618,6 @@ const updateUser = asyncHandler(async (req, res) => {
 
         // GST Certificate
         if (uploadedFiles.gstCertificate) {
-
-            // User must be updating their own documents or be SuperAdmin
             if (!isUpdatingSelf && !isSuperAdmin) {
                 return res.status(200).json({
                     Status: 0,
@@ -597,7 +635,7 @@ const updateUser = asyncHandler(async (req, res) => {
             }
         }
 
-        // Aadhar Front & Back (for HoardingOwner - only HoardingOwner can update their own)
+        // Aadhar Front & Back
         if (uploadedFiles.aadharFront) {
             if (!isUpdatingSelf && !isSuperAdmin) {
                 return res.status(200).json({
@@ -617,7 +655,6 @@ const updateUser = asyncHandler(async (req, res) => {
         }
 
         if (uploadedFiles.aadharBack) {
-
             if (!isUpdatingSelf && !isSuperAdmin) {
                 return res.status(200).json({
                     Status: 0,
@@ -635,9 +672,8 @@ const updateUser = asyncHandler(async (req, res) => {
             }
         }
 
-        // PAN Card (for HoardingOwner - only HoardingOwner can update their own)
+        // PAN Card
         if (uploadedFiles.panCard) {
-
             if (!isUpdatingSelf && !isSuperAdmin) {
                 return res.status(200).json({
                     Status: 0,
@@ -655,7 +691,7 @@ const updateUser = asyncHandler(async (req, res) => {
             }
         }
 
-        // Perform uploads
+        // ========== PERFORM UPLOADS ==========
         if (toUpload.length > 0) {
             const uploadedResults = {};
 
@@ -663,14 +699,11 @@ const updateUser = asyncHandler(async (req, res) => {
                 if (!entry || !entry.file) continue;
 
                 try {
-                    const originalName =
-                        entry.file.originalname || `${entry.prefix}_${Date.now()}`;
+                    const originalName = entry.file.originalname || `${entry.prefix}_${Date.now()}`;
                     const folder = "users";
                     const s3name = `${folder}/${Date.now()}_${originalName}`;
 
-                    const uploadResult = await uploadImageReturnUrl(entry.file, s3name, {
-                        req,
-                    });
+                    const uploadResult = await uploadImageReturnUrl(entry.file, s3name, { req });
 
                     if (uploadResult && uploadResult.path) {
                         uploadedResults[entry.key] = uploadResult.path;
@@ -680,128 +713,101 @@ const updateUser = asyncHandler(async (req, res) => {
                 }
             }
 
-            // Apply uploaded paths to updates
-            if (uploadedResults.profilepic) {
-                updates.profilepic = uploadedResults.profilepic;
-            }
-            if (uploadedResults.gst_certificate) {
-                updates.gst_certificate = uploadedResults.gst_certificate;
-            }
-            if (uploadedResults.aadharFront) {
-                updates.aadharFront = uploadedResults.aadharFront;
-            }
-            if (uploadedResults.aadharBack) {
-                updates.aadharBack = uploadedResults.aadharBack;
-            }
-            if (uploadedResults.panimage) {
-                updates.panimage = uploadedResults.panimage;
-            }
+            if (uploadedResults.profilepic) updates.profilepic = uploadedResults.profilepic;
+            if (uploadedResults.gst_certificate) updates.gst_certificate = uploadedResults.gst_certificate;
+            if (uploadedResults.aadharFront) updates.aadharFront = uploadedResults.aadharFront;
+            if (uploadedResults.aadharBack) updates.aadharBack = uploadedResults.aadharBack;
+            if (uploadedResults.panimage) updates.panimage = uploadedResults.panimage;
         }
 
-        // Convert date strings
+        // ========== DATA PROCESSING ==========
         if (updates.birthDate) {
             updates.birthDate = new Date(updates.birthDate);
         }
 
         // Handle address updates
-        if (updates.address) {
-            // If address is an object with nested fields
-            if (typeof updates.address === "object") {
-                // Create or update address object
-                user.address = user.address || {};
+        if (updates.address && typeof updates.address === "object") {
+            user.address = user.address || {};
 
-                // Update individual address fields
-                if (updates.address.country) {
-                    user.address.country = mongoose.Types.ObjectId(
-                        updates.address.country,
-                    );
-                }
-                if (updates.address.state) {
-                    user.address.state = mongoose.Types.ObjectId(updates.address.state);
-                }
-                if (updates.address.city) {
-                    user.address.city = mongoose.Types.ObjectId(updates.address.city);
-                }
-                if (updates.address.street !== undefined) {
-                    user.address.street = updates.address.street;
-                }
-                if (updates.address.pincode !== undefined) {
-                    user.address.pincode = updates.address.pincode;
-                }
-
-                // Remove address from updates since we're handling it separately
-                delete updates.address;
+            if (updates.address.country) {
+                user.address.country = mongoose.Types.ObjectId(updates.address.country);
             }
+            if (updates.address.state) {
+                user.address.state = mongoose.Types.ObjectId(updates.address.state);
+            }
+            if (updates.address.city) {
+                user.address.city = mongoose.Types.ObjectId(updates.address.city);
+            }
+            if (updates.address.street !== undefined) {
+                user.address.street = updates.address.street;
+            }
+            if (updates.address.pincode !== undefined) {
+                user.address.pincode = updates.address.pincode;
+            }
+
+            delete updates.address;
         }
 
-        // Handle skills array (if provided as comma-separated string or array)
+        // Handle skills array
         if (updates.skills !== undefined && canUpdateWorkerFields) {
             if (typeof updates.skills === "string") {
-                // Convert comma-separated string to array
                 updates.skills = updates.skills
                     .split(",")
-                    .map((skill) => skill.trim())
-                    .filter((skill) => skill);
+                    .map(skill => skill.trim())
+                    .filter(skill => skill);
             } else if (Array.isArray(updates.skills)) {
-                // Ensure all skills are strings
                 updates.skills = updates.skills
-                    .map((skill) => String(skill).trim())
-                    .filter((skill) => skill);
+                    .map(skill => String(skill).trim())
+                    .filter(skill => skill);
             }
         }
 
-        // Handle plan ObjectId conversion
         if (updates.plan) {
             updates.plan = mongoose.Types.ObjectId(updates.plan);
         }
 
-        // Handle validation for enum fields (only if being updated by authorized user)
+        // ========== VALIDATE ENUM FIELDS ==========
         if (updates.workerType !== undefined && canUpdateWorkerFields) {
-            if (
-                !["Installation", "Maintenance", "Removal", "All"].includes(
-                    updates.workerType,
-                )
-            ) {
+            const validWorkerTypes = ["Installation", "Maintenance", "Removal", "All"];
+            if (!validWorkerTypes.includes(updates.workerType)) {
                 return res.status(200).json({
                     Status: 0,
-                    Message:
-                        "Invalid workerType. Must be one of: Installation, Maintenance, Removal, All",
+                    Message: `Invalid workerType. Must be one of: ${validWorkerTypes.join(", ")}`,
                 });
             }
         }
 
         if (updates.availability !== undefined && canUpdateWorkerFields) {
-            if (
-                !["Available", "Busy", "Unavailable"].includes(updates.availability)
-            ) {
+            const validAvailability = ["Available", "Busy", "Unavailable"];
+            if (!validAvailability.includes(updates.availability)) {
                 return res.status(200).json({
                     Status: 0,
-                    Message:
-                        "Invalid availability. Must be one of: Available, Busy, Unavailable",
+                    Message: `Invalid availability. Must be one of: ${validAvailability.join(", ")}`,
                 });
             }
         }
 
-        // Add validation for accountStatus (only if SuperAdmin is updating it)
         if (updates.accountStatus !== undefined && isSuperAdmin) {
-            if (!["Active", "Inactive", "Suspended", "Pending"].includes(updates.accountStatus)) {
+            const validAccountStatus = ["Active", "Inactive", "Suspended", "Pending"];
+            if (!validAccountStatus.includes(updates.accountStatus)) {
                 return res.status(200).json({
                     Status: 0,
-                    Message: "Invalid accountStatus. Must be one of: Active, Inactive, Suspended, Pending",
+                    Message: `Invalid accountStatus. Must be one of: ${validAccountStatus.join(", ")}`,
                 });
             }
         }
 
         if (updates.userStatus !== undefined && isSuperAdmin) {
-            if (!["Active", "Inactive"].includes(updates.userStatus)) {
+            const validUserStatus = ["Active", "Inactive"];
+            if (!validUserStatus.includes(updates.userStatus)) {
                 return res.status(200).json({
                     Status: 0,
-                    Message: "Invalid userStatus. Must be one of: Active, Inactive",
+                    Message: `Invalid userStatus. Must be one of: ${validUserStatus.join(", ")}`,
                 });
             }
         }
 
-        // Validate experience if provided and authorized
+        // ========== VALIDATE NUMERIC FIELDS ==========
         if (updates.experience !== undefined && canUpdateWorkerFields) {
             const experienceNum = parseInt(updates.experience);
             if (isNaN(experienceNum) || experienceNum < 0) {
@@ -813,7 +819,6 @@ const updateUser = asyncHandler(async (req, res) => {
             updates.experience = experienceNum;
         }
 
-        // Validate rating fields if being updated (only by SuperAdmin)
         if (updates.averageRating !== undefined && isSuperAdmin) {
             const rating = parseFloat(updates.averageRating);
             if (isNaN(rating) || rating < 0 || rating > 5) {
@@ -836,7 +841,7 @@ const updateUser = asyncHandler(async (req, res) => {
             updates.totalRatings = total;
         }
 
-        // Check for duplicate mobileNumber if being updated
+        // ========== CHECK FOR DUPLICATES ==========
         if (updates.mobileNumber && updates.mobileNumber !== user.mobileNumber) {
             const existingUser = await User.findOne({
                 mobileNumber: updates.mobileNumber,
@@ -851,11 +856,7 @@ const updateUser = asyncHandler(async (req, res) => {
             }
         }
 
-        // Check for duplicate alternateMobileNumber if being updated
-        if (
-            updates.alternateMobileNumber &&
-            updates.alternateMobileNumber !== user.alternateMobileNumber
-        ) {
+        if (updates.alternateMobileNumber && updates.alternateMobileNumber !== user.alternateMobileNumber) {
             const existingUser = await User.findOne({
                 $or: [
                     { mobileNumber: updates.alternateMobileNumber },
@@ -872,9 +873,8 @@ const updateUser = asyncHandler(async (req, res) => {
             }
         }
 
-        // Update all other fields
+        // ========== APPLY UPDATES ==========
         Object.keys(updates).forEach((key) => {
-            // Skip address since we handled it separately
             if (key !== "address") {
                 user[key] = updates[key];
             }
@@ -882,28 +882,29 @@ const updateUser = asyncHandler(async (req, res) => {
 
         const updatedUser = await user.save();
 
-        // Delete old files from S3 after successful update
+        // ========== DELETE OLD FILES ==========
         if (filesToDelete.length > 0) {
             try {
                 await Promise.all(
                     filesToDelete.map((filePath) =>
                         deleteFromS3(filePath).catch((err) =>
-                            console.error(`Failed to delete file ${filePath}:`, err),
-                        ),
-                    ),
+                            console.error(`Failed to delete file ${filePath}:`, err)
+                        )
+                    )
                 );
             } catch (deleteError) {
                 console.error("Error deleting old files:", deleteError);
             }
         }
 
-        // Populate references
+        // ========== FETCH UPDATED USER ==========
         const populatedUser = await User.findById(updatedUser._id)
             .populate("address.city")
             .populate("address.state")
             .populate("address.country")
             .populate("plan");
 
+        // ========== SEND RESPONSE ==========
         res.status(200).json({
             Status: 1,
             Message: "User updated successfully",
@@ -912,7 +913,6 @@ const updateUser = asyncHandler(async (req, res) => {
     } catch (error) {
         console.error("Update user error:", error);
 
-        // Handle duplicate key error
         if (error.code === 11000) {
             const field = Object.keys(error.keyPattern)[0];
             return res.status(200).json({
@@ -920,7 +920,7 @@ const updateUser = asyncHandler(async (req, res) => {
                 Message: `${field} already exists`,
             });
         }
-        // Handle validation errors
+
         if (error.name === "ValidationError") {
             const messages = Object.values(error.errors).map((err) => err.message);
             return res.status(200).json({
@@ -938,10 +938,15 @@ const updateUser = asyncHandler(async (req, res) => {
     }
 });
 
+/**
+ * Delete User Controller
+ * Soft deletes user by setting status to Inactive
+ */
 const deleteUser = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
 
+        // ========== FIND USER ==========
         const user = await User.findById(id);
 
         if (!user) {
@@ -951,10 +956,11 @@ const deleteUser = asyncHandler(async (req, res) => {
             });
         }
 
-        // Mark as inactive instead of deleting
+        // ========== SOFT DELETE ==========
         user.userStatus = "Inactive";
         await user.save();
 
+        // ========== SEND RESPONSE ==========
         res.status(200).json({
             Status: 1,
             Message: "User deactivated successfully",
@@ -970,34 +976,45 @@ const deleteUser = asyncHandler(async (req, res) => {
     }
 });
 
-// logout
+/**
+ * Logout Controller
+ * Handles user logout and device cleanup
+ */
 const logout = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.user._id);
-    console.log(user);
+    try {
+        const user = await User.findById(req.user._id);
+        console.log(user);
 
-    if (user) {
-        const device = await Device.findById(user.deviceid);
-        if (device) {
-            console.log(device);
-            await Device.deleteOne({ _id: device._id });
+        if (user) {
+            const device = await Device.findById(user.deviceid);
+            if (device) {
+                console.log(device);
+                await Device.deleteOne({ _id: device._id });
 
-            return res.status(200).json({
-                Status: 1,
-                Message: "Logout successful",
-            });
-        } else {
-            return res.status(200).json({
-                Status: 1,
-                Message: "Logout successful",
-            });
+                return res.status(200).json({
+                    Status: 1,
+                    Message: "Logout successful",
+                });
+            } else {
+                return res.status(200).json({
+                    Status: 1,
+                    Message: "Logout successful",
+                });
+            }
         }
-    }
 
-    // If user not found, still send logout successful with Status 0
-    return res.status(200).json({
-        Status: 0,
-        Message: "Logout successful",
-    });
+        return res.status(200).json({
+            Status: 0,
+            Message: "Logout successful",
+        });
+    } catch (error) {
+        console.error("Logout error:", error);
+        return res.status(500).json({
+            Status: 0,
+            Message: "Logout failed",
+            error: process.env.NODE_ENV === "development" ? error.message : undefined,
+        });
+    }
 });
 
 module.exports = {

@@ -1,9 +1,10 @@
+const mongoose = require("mongoose");
 const asyncHandler = require("express-async-handler");
 const Hoarding = require("../models/Hoarding");
 const User = require("../models/User");
 const { sendNotification, notificationTemplates } = require("./notificationController");
 
-//  CREATE HOARDING
+// CREATE HOARDING
 const createHoarding = asyncHandler(async (req, res) => {
     try {
         // Check if user is authenticated
@@ -49,18 +50,43 @@ const createHoarding = asyncHandler(async (req, res) => {
             // Check if code already exists
             const existingHoarding = await Hoarding.findOne({ hoardingCode: code });
             if (existingHoarding) {
-                return generateHoardingCode(); // Recursively generate new code
+                return generateHoardingCode();
             }
             return code;
         };
 
+        // Calculate area if dimensions are provided
+        const dimensions = { ...req.body.dimensions };
+        if (dimensions.width && dimensions.height) {
+            dimensions.area = dimensions.width * dimensions.height;
+        }
+
         // Prepare hoarding data
         const hoardingData = {
-            ...req.body,
             owner: req.user.id,
+            hoardingName: req.body.hoardingName,
             hoardingCode: await generateHoardingCode(),
-            approvalStatus: "Pending", // Initial status
-            status: "Inactive" // Initially inactive until approved
+            description: req.body.description,
+            location: {
+                address: req.body.location.address,
+                city: req.body.location.city,
+                state: req.body.location.state,
+                country: req.body.location.country,
+                pincode: req.body.location.pincode,
+                coordinates: {
+                    latitude: req.body.location.coordinates?.latitude,
+                    longitude: req.body.location.coordinates?.longitude
+                }
+            },
+            dimensions: dimensions,
+            type: req.body.type,
+            images: req.body.images || [],
+            pricePerDay: req.body.pricePerDay,
+            status: "Inactive",
+            approvalStatus: "Pending",
+            isActive: true,
+            averageRating: 0,
+            totalBookings: 0
         };
 
         // Create hoarding
@@ -95,17 +121,10 @@ const createHoarding = asyncHandler(async (req, res) => {
             actionLabel: "View Hoarding"
         });
 
-        // Populate the response
-        const populatedHoarding = await Hoarding.findById(hoarding._id)
-            .populate("owner", "firstName lastName email mobileNumber")
-            .populate("location.city")
-            .populate("location.state")
-            .populate("location.country");
-
         res.status(201).json({
             status: 1,
             message: "Hoarding created successfully. Waiting for admin approval.",
-            hoarding: populatedHoarding
+            hoarding: hoarding
         });
     } catch (error) {
         // Handle duplicate key error for hoardingCode
@@ -133,7 +152,7 @@ const createHoarding = asyncHandler(async (req, res) => {
     }
 });
 
-//  GET ALL HOARDINGS
+// GET ALL HOARDINGS
 const getAllHoardings = asyncHandler(async (req, res) => {
     try {
         const {
@@ -145,6 +164,7 @@ const getAllHoardings = asyncHandler(async (req, res) => {
             minPrice,
             maxPrice,
             owner,
+            isActive,
             page = 1,
             limit = 20,
             sortBy = "createdAt",
@@ -158,6 +178,7 @@ const getAllHoardings = asyncHandler(async (req, res) => {
         if (approvalStatus) query.approvalStatus = approvalStatus;
         if (type) query.type = type;
         if (owner) query.owner = owner;
+        if (isActive !== undefined) query.isActive = isActive === 'true';
 
         // Price range filter
         if (minPrice || maxPrice) {
@@ -179,10 +200,6 @@ const getAllHoardings = asyncHandler(async (req, res) => {
 
         // Execute query with pagination
         const hoardings = await Hoarding.find(query)
-            .populate("owner", "firstName lastName email mobileNumber")
-            .populate("location.city")
-            .populate("location.state")
-            .populate("location.country")
             .sort(sort)
             .skip(skip)
             .limit(Number(limit));
@@ -195,7 +212,7 @@ const getAllHoardings = asyncHandler(async (req, res) => {
             total,
             totalPages: Math.ceil(total / limit),
             currentPage: Number(page),
-            hoarding: hoardings
+            hoardings: hoardings
         });
     } catch (error) {
         res.status(500).json({
@@ -206,14 +223,10 @@ const getAllHoardings = asyncHandler(async (req, res) => {
     }
 });
 
-//  GET HOARDING BY ID
+// GET HOARDING BY ID
 const getHoardingById = asyncHandler(async (req, res) => {
     try {
-        const hoarding = await Hoarding.findById(req.params.id)
-            .populate("owner", "firstName lastName email mobileNumber")
-            .populate("location.city")
-            .populate("location.state")
-            .populate("location.country");
+        const hoarding = await Hoarding.findById(req.params.id);
 
         if (!hoarding) {
             return res.status(404).json({
@@ -243,10 +256,11 @@ const getHoardingById = asyncHandler(async (req, res) => {
     }
 });
 
-//  UPDATE HOARDING
+// UPDATE HOARDING (Includes approval status update for SuperAdmin and status update for owner)
 const updateHoarding = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
+        const updateData = {};
 
         // Find the hoarding
         const hoarding = await Hoarding.findById(id);
@@ -258,61 +272,42 @@ const updateHoarding = asyncHandler(async (req, res) => {
             });
         }
 
-        // Check if user is the owner
-        if (hoarding.owner._id.toString() !== req.user.id) {
+        // Check if user is the owner or SuperAdmin
+        const isOwner = hoarding.owner._id.toString() === req.user.id;
+        const isSuperAdmin = req.user.userType === "SuperAdmin";
+
+        if (!isOwner && !isSuperAdmin) {
             return res.status(403).json({
                 status: 0,
-                message: "You can only update your own hoardings"
+                message: "You don't have permission to update this hoarding"
             });
         }
 
-        // Check approval status - only SuperAdmin can update approvalStatus
-        if (req.body.approvalStatus && req.user.userType !== "SuperAdmin") {
-            return res.status(403).json({
-                status: 0,
-                message: "Only SuperAdmin can update approval status"
-            });
-        }
-
-        // If user is SuperAdmin updating approvalStatus
-        if (req.user.userType === "SuperAdmin" && req.body.approvalStatus) {
+        // --- SUPERADMIN UPDATES (Approval Status) ---
+        if (isSuperAdmin && req.body.approvalStatus) {
             const { approvalStatus } = req.body;
 
             // Validate approval status value
             if (!["Pending", "Approved", "Rejected"].includes(approvalStatus)) {
                 return res.status(400).json({
                     status: 0,
-                    message: "Invalid approval status"
+                    message: "Invalid approval status. Must be Pending, Approved, or Rejected"
                 });
             }
 
+            updateData.approvalStatus = approvalStatus;
+            
             // If approving, set status to Active
-            const updateData = {
-                approvalStatus,
-                status: approvalStatus === "Approved" ? "Active" : hoarding.status
-            };
-
-            const updatedHoarding = await Hoarding.findByIdAndUpdate(
-                id,
-                { $set: updateData },
-                { new: true, runValidators: true }
-            ).populate("owner", "firstName lastName email mobileNumber")
-                .populate("location.city")
-                .populate("location.state")
-                .populate("location.country");
+            if (approvalStatus === "Approved") {
+                updateData.status = "Active";
+            }
 
             // Send notification to hoarding owner
-            const notificationType = approvalStatus === "Approved"
-                ? "hoarding_approved"
-                : approvalStatus === "Rejected"
-                    ? "hoarding_rejected"
-                    : "hoarding_pending";
-
             await sendNotification({
                 userId: hoarding.owner,
                 title: `Hoarding ${approvalStatus}`,
                 message: `Your hoarding "${hoarding.hoardingName}" has been ${approvalStatus.toLowerCase()}.`,
-                type: notificationType,
+                type: `hoarding_${approvalStatus.toLowerCase()}`,
                 relatedModel: "Hoarding",
                 relatedId: hoarding._id,
                 actionUrl: `/hoardings/${hoarding._id}`,
@@ -331,34 +326,28 @@ const updateHoarding = asyncHandler(async (req, res) => {
                 });
             }
 
-            // Send notification to all SuperAdmins about the update
-            const superAdmins = await User.find({
+            // Notify other SuperAdmins
+            const otherAdmins = await User.find({
                 userType: "SuperAdmin",
                 isActive: true,
-                _id: { $ne: req.user.id } // Exclude the admin who made the change
+                _id: { $ne: req.user.id }
             });
 
-            for (const admin of superAdmins) {
+            for (const admin of otherAdmins) {
                 await sendNotification({
                     userId: admin._id,
                     title: `Hoarding ${approvalStatus} by Admin`,
-                    message: `Hoarding "${hoarding.hoardingName}" has been ${approvalStatus.toLowerCase()} by ${req.user.firstName}.`,
+                    message: `Hoarding "${hoarding.hoardingName}" has been ${approvalStatus.toLowerCase()} by ${req.user.firstName || 'Admin'}.`,
                     type: "system",
                     relatedModel: "Hoarding",
                     relatedId: hoarding._id
                 });
             }
-
-            return res.status(200).json({
-                status: 1,
-                message: `Hoarding ${approvalStatus.toLowerCase()} successfully`,
-                hoarding: updatedHoarding
-            });
         }
 
-        // If user is owner (not SuperAdmin), check conditions for updating
-        if (req.user.userType !== "SuperAdmin") {
-            // Check if hoarding is approved
+        // --- OWNER UPDATES (Hoarding Details & Status) ---
+        if (isOwner) {
+            // Check if hoarding is approved before allowing updates
             if (hoarding.approvalStatus !== "Approved") {
                 return res.status(400).json({
                     status: 0,
@@ -366,16 +355,54 @@ const updateHoarding = asyncHandler(async (req, res) => {
                 });
             }
 
-            // Check if hoarding status is Inactive
-            if (hoarding.status !== "Inactive") {
-                return res.status(400).json({
-                    status: 0,
-                    message: "Can only update hoarding when status is Inactive"
-                });
+            // Handle STATUS update (Active/Inactive/Booked)
+            if (req.body.status) {
+                const { status } = req.body;
+                
+                // Validate status
+                if (!["Active", "Inactive", "Booked"].includes(status)) {
+                    return res.status(400).json({
+                        status: 0,
+                        message: "Invalid status. Must be Active, Inactive, or Booked"
+                    });
+                }
+
+                updateData.status = status;
             }
 
-            // If owner is updating approved hoarding, notify SuperAdmins
-            if (hoarding.approvalStatus === "Approved") {
+            // Handle HOARDING DETAILS update
+            // Check if hoarding status is Inactive for detail updates
+            if (req.body.hoardingName || req.body.description || req.body.location || 
+                req.body.dimensions || req.body.type || req.body.images || req.body.pricePerDay) {
+                
+                if (hoarding.status !== "Inactive") {
+                    return res.status(400).json({
+                        status: 0,
+                        message: "Can only update hoarding details when status is Inactive"
+                    });
+                }
+
+                // Calculate area if dimensions are being updated
+                if (req.body.dimensions) {
+                    const { width, height } = req.body.dimensions;
+                    if (width && height) {
+                        req.body.dimensions.area = width * height;
+                    }
+                }
+
+                // Copy allowed fields to updateData
+                const allowedFields = [
+                    "hoardingName", "description", "location", "dimensions", 
+                    "type", "images", "pricePerDay"
+                ];
+
+                allowedFields.forEach(field => {
+                    if (req.body[field] !== undefined) {
+                        updateData[field] = req.body[field];
+                    }
+                });
+
+                // Notify SuperAdmins about detail updates
                 const superAdmins = await User.find({ userType: "SuperAdmin", isActive: true });
 
                 for (const admin of superAdmins) {
@@ -393,46 +420,34 @@ const updateHoarding = asyncHandler(async (req, res) => {
             }
         }
 
-        // Fields that cannot be updated by owner
-        const restrictedFields = [
-            "owner",
-            "hoardingCode",
-            "approvalStatus", // Only SuperAdmin can update
-            "isActive",
-            "averageRating",
-            "totalBookings"
-        ];
-
-        // Remove restricted fields for non-SuperAdmin users
-        if (req.user.userType !== "SuperAdmin") {
-            restrictedFields.forEach(field => {
-                if (req.body[field]) {
-                    delete req.body[field];
-                }
+        // If no updates to perform
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({
+                status: 0,
+                message: "No valid fields to update"
             });
         }
 
-        // Update hoarding
+        // Perform the update
         const updatedHoarding = await Hoarding.findByIdAndUpdate(
             id,
-            { $set: req.body },
+            { $set: updateData },
             { new: true, runValidators: true }
-        ).populate("owner", "firstName lastName email mobileNumber")
-            .populate("location.city")
-            .populate("location.state")
-            .populate("location.country");
+        );
 
-        // Send notification to owner about successful update
-        await sendNotification({
-            userId: hoarding.owner,
-            title: "Hoarding Updated Successfully",
-            message: `Your hoarding "${hoarding.hoardingName}" has been updated.`,
-            type: "hoarding_updated",
-            relatedModel: "Hoarding",
-            relatedId: hoarding._id,
-            actionUrl: `/hoardings/${hoarding._id}`,
-            actionLabel: "View Updated Hoarding"
-        });
+        // Send notification to owner about successful update (if not already sent for approval)
+        if (isOwner && !req.body.approvalStatus) {
+            await sendNotification({
+                userId: hoarding.owner,
+                title: "Hoarding Updated Successfully",
+                message: `Your hoarding "${hoarding.hoardingName}" has been updated.`,
+                type: "hoarding_updated",
+                relatedModel: "Hoarding",
+                relatedId: hoarding._id,
+                actionUrl: `/hoardings/${hoarding._id}`,
+                actionLabel: "View Updated Hoarding"
+            });
+        }
 
         res.status(200).json({
             status: 1,
@@ -465,18 +480,24 @@ const updateHoarding = asyncHandler(async (req, res) => {
     }
 });
 
-// DELETE HOARDING
+// DELETE HOARDING (Soft delete)
 const deleteHoarding = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Find the hoarding
         const hoarding = await Hoarding.findById(id);
 
         if (!hoarding) {
             return res.status(404).json({
                 status: 0,
                 message: "Hoarding not found"
+            });
+        }
+        
+        if (hoarding.isDeleted) {
+            return res.status(400).json({
+                status: 0,
+                message: "Hoarding is already deleted"
             });
         }
 
@@ -510,60 +531,23 @@ const deleteHoarding = asyncHandler(async (req, res) => {
             }
         }
 
-        // Perform deletion (soft delete by setting isActive to false)
+        // Perform proper soft deletion using the dedicated fields
         const deletedHoarding = await Hoarding.findByIdAndUpdate(
             id,
             {
                 $set: {
-                    isActive: false,
-                    status: "Inactive"
+                    isDeleted: true,           
+                    deletedAt: new Date(),      
+                    deletedBy: req.user.id,     
+                    isActive: false,           
+                    status: "Inactive"      
                 }
             },
             { new: true }
-        );
-
-        // Send notification to hoarding owner
-        await sendNotification({
-            userId: hoarding.owner,
-            title: "Hoarding Deleted",
-            message: `Your hoarding "${hoarding.hoardingName}" has been deleted.`,
-            type: "hoarding_deleted",
-            relatedModel: "Hoarding",
-            relatedId: hoarding._id
-        });
-
-        // If deleted by SuperAdmin, notify owner about admin action
-        if (isSuperAdmin && !isOwner) {
-            const adminName = req.user.firstName || "Admin";
-            await sendNotification({
-                userId: hoarding.owner,
-                title: "Hoarding Deleted by Admin",
-                message: `Your hoarding "${hoarding.hoardingName}" has been deleted by ${adminName}.`,
-                type: "hoarding_admin_deleted",
-                relatedModel: "Hoarding",
-                relatedId: hoarding._id
-            });
-        }
-
-        // Notify SuperAdmins about the deletion (except the one who deleted)
-        if (isSuperAdmin) {
-            const otherAdmins = await User.find({
-                userType: "SuperAdmin",
-                isActive: true,
-                _id: { $ne: req.user.id }
-            });
-
-            for (const admin of otherAdmins) {
-                await sendNotification({
-                    userId: admin._id,
-                    title: "Hoarding Deleted by Admin",
-                    message: `Hoarding "${hoarding.hoardingName}" has been deleted by ${req.user.firstName}.`,
-                    type: "system",
-                    relatedModel: "Hoarding",
-                    relatedId: hoarding._id
-                });
-            }
-        }
+        ).populate("owner", "firstName lastName email mobileNumber")
+         .populate("location.city")
+         .populate("location.state")
+         .populate("location.country");
 
         res.status(200).json({
             status: 1,
@@ -587,72 +571,34 @@ const deleteHoarding = asyncHandler(async (req, res) => {
     }
 });
 
-// UPDATE HOARDING STATUS (Only for owner - Active/Inactive/Booked)
-const updateHoardingStatus = asyncHandler(async (req, res) => {
+// GET HOARDINGS BY OWNER
+const getHoardingsByOwner = asyncHandler(async (req, res) => {
     try {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        // Validate status
-        if (!["Active", "Inactive", "Booked"].includes(status)) {
-            return res.status(400).json({
-                status: 0,
-                message: "Invalid status. Must be Active, Inactive, or Booked"
-            });
-        }
-
-        // Find the hoarding
-        const hoarding = await Hoarding.findById(id);
-
-        if (!hoarding) {
-            return res.status(404).json({
-                status: 0,
-                message: "Hoarding not found"
-            });
-        }
-
-        // Check if user is the owner
-        if (hoarding.owner._id.toString() !== req.user.id) {
-            return res.status(403).json({
-                status: 0,
-                message: "You can only update status of your own hoardings"
-            });
-        }
-
-        // Check if hoarding is approved
-        if (hoarding.approvalStatus !== "Approved") {
-            return res.status(400).json({
-                status: 0,
-                message: "Cannot update status of unapproved hoarding"
-            });
-        }
-
-        // Update status
-        const updatedHoarding = await Hoarding.findByIdAndUpdate(
-            id,
-            { $set: { status } },
-            { new: true, runValidators: true }
-        ).populate("owner", "firstName lastName email mobileNumber");
-
-        // Send notification to owner
-        await sendNotification({
-            userId: hoarding.owner,
-            title: `Hoarding Status Updated to ${status}`,
-            message: `Your hoarding "${hoarding.hoardingName}" status has been updated to ${status}.`,
-            type: "hoarding_status_updated",
-            relatedModel: "Hoarding",
-            relatedId: hoarding._id,
-            actionUrl: `/hoardings/${hoarding._id}`,
-            actionLabel: "View Hoarding"
-        });
-
+        const { page = 1, limit = 20, status, approvalStatus } = req.query;
+        
+        const query = { owner: req.user.id };
+        
+        if (status) query.status = status;
+        if (approvalStatus) query.approvalStatus = approvalStatus;
+        
+        const skip = (page - 1) * limit;
+        
+        const hoardings = await Hoarding.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(Number(limit));
+            
+        const total = await Hoarding.countDocuments(query);
+        
         res.status(200).json({
             status: 1,
-            message: `Hoarding status updated to ${status} successfully`,
-            hoarding: updatedHoarding
+            count: hoardings.length,
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: Number(page),
+            hoardings: hoardings
         });
     } catch (error) {
-        console.error("Update hoarding status error:", error);
         res.status(500).json({
             status: 0,
             message: "Server error",
@@ -667,5 +613,5 @@ module.exports = {
     getHoardingById,
     updateHoarding,
     deleteHoarding,
-    updateHoardingStatus
+    getHoardingsByOwner
 };
