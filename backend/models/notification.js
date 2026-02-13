@@ -55,7 +55,7 @@ const notificationSchema = new mongoose.Schema({
 
   // Related Entity
   relatedTo: {
-    model: String, // 'Booking', 'WorkerRequest', 'Task', etc.
+    model: String, // 'Booking', 'WorkRequest', 'Task', etc.
     id: mongoose.Schema.Types.ObjectId
   },
 

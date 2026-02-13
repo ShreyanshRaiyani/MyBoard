@@ -7,10 +7,11 @@ const {
     updateWorkRequest,
     deleteWorkRequest,
     reassignWorker
-} = require('../Controllers/workerRequestController.js');
+} = require('../Controllers/workRequestController.js');
 const { protect } = require("../middleware/auth.js");
+const { attachImage } = require("../middleware/uploadimage.js");
 
-router.post("/", protect, createWorkRequest);
+router.post("/", protect, attachImage, createWorkRequest);
 router.get("/", protect, getAllWorkRequests);
 router.get("/:id", protect, getWorkRequestById);
 router.put("/:id", protect, updateWorkRequest);

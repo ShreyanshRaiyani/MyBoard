@@ -8,12 +8,13 @@ const {
     deleteHoarding,
     getHoardingsByOwner
 } = require('../Controllers/hoardingController.js');
+const { attachImage}= require('../middleware/uploadimage.js');
 const { protect } = require("../middleware/auth.js");
 
-router.post("/",protect, createHoarding);
+router.post("/",protect,attachImage, createHoarding);
 router.get("/", protect, getAllHoardings);
 router.get("/:id", protect, getHoardingById);
-router.put("/:id", protect, updateHoarding);
+router.put("/:id", protect, attachImage, updateHoarding);
 router.delete("/:id", protect, deleteHoarding);
 router.get("/owner/:id", protect, getHoardingsByOwner);
 

@@ -12,7 +12,7 @@ const bookingRoutes = require('./routes/bookingRoutes.js');
 const hoardingRoutes = require('./routes/hoardingRoutes.js');
 const notificationRoutes = require('./routes/notificationRoutes.js');
 const queueRoutes = require('./routes/queueRoutes.js');
-const workerRequestRoutes = require('./routes/workerRequestRoutes.js');
+const workRequestRoutes = require('./routes/workRequestRoutes.js');
 
 const app = express();
 
@@ -41,7 +41,7 @@ app.use('/api/booking', bookingRoutes);
 app.use('/api/hoarding', hoardingRoutes);
 app.use('/api/notification', notificationRoutes);
 app.use('/api/queue', queueRoutes);
-app.use('/api/workerRequest', workerRequestRoutes);
+app.use('/api/workrequest', workRequestRoutes);
 
 // app.use('/admin/api/dashboard', dashboardRoutes);
 
