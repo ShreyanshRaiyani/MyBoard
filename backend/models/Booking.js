@@ -84,7 +84,6 @@ function autoPopulate(next) {
   this.populate("bannerUser", "firstName lastName email mobileNumber business");
   this.populate("hoarding");
   this.populate("hoardingOwner", "firstName lastName email mobileNumber business");
-  this.populate("workRequest");
   next();
 }
 

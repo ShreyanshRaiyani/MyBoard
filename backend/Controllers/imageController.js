@@ -49,7 +49,14 @@ const uploadImageReturnUrl = async (file, originalName, options = {}) => {
       stream.end(file.buffer);
     });
 
-    return { filename: result.original_filename, path: result.secure_url, publicId: result.public_id };
+    // Generate URL without version parameter
+    const urlWithoutVersion = cloudinary.url(result.public_id, { 
+      secure: true, 
+      version: false,
+      resource_type: "image"
+    });
+
+    return { filename: result.original_filename, path: urlWithoutVersion, publicId: result.public_id };
   } catch (err) {
     console.error("uploadImageReturnUrl error:", err && err.message ? err.message : err);
     throw new Error(`Failed to upload image to Cloudinary: ${err && err.message ? err.message : String(err)}`);
@@ -90,7 +97,7 @@ const normalizePublicId = (key) => {
 };
 
 // helper to delete object(s) from Cloudinary. Accepts a public id or a URL.
-const deleteFromS3 = async (key) => {
+const deleteFromCloudinary = async (key) => {
   const publicId = normalizePublicId(key);
   if (!publicId) throw new Error("key is required");
 
@@ -122,4 +129,4 @@ const removeImage = async (req, res) => {
   }
 };
 
-module.exports = { uploadImage, getImage, uploadImageReturnUrl, deleteFromS3, removeImage };
+module.exports = { uploadImage, getImage, uploadImageReturnUrl, deleteFromCloudinary, removeImage };

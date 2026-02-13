@@ -1,14 +1,14 @@
-const asybcHandler = require("express-async-handler");
+const asyncHandler = require("express-async-handler");
 const Booking = require("../models/Booking");
 const Hoarding = require("../models/Hoarding");
 const User = require("../models/User");
-const WorkRequest = require('../models/workerRequest');
+const WorkRequest = require('../models/workRequest');
 const Queue = require("../models/Queue");
 const { sendNotification, notificationTemplates } = require("./notificationController");
 
 // Generate unique request number
 const generateRequestNumber = async () => {
-    const prefix = "REQ";
+    const prefix = "REQ-";
     const randomNum = Math.floor(10000 + Math.random() * 90000);
     const requestNumber = `${prefix}${randomNum}`;
 
@@ -20,7 +20,7 @@ const generateRequestNumber = async () => {
 };
 
 // 1. CREATE BOOKING REQUEST
-const createBooking = asybcHandler(async (req, res) => {
+const createBooking = asyncHandler(async (req, res) => {
     const { hoardingId, campaignName, startDate, endDate, notes } = req.body;
 
     // Check if user is authenticated and is a banner user
@@ -110,7 +110,6 @@ const createBooking = asybcHandler(async (req, res) => {
     };
 
     if (hoarding.status === "Booked") {
-        // Hoarding is currently booked, handle queue logic
         // Check if queue exists
         let queue = await Queue.findOne({
             hoarding: hoardingId,
@@ -258,7 +257,7 @@ const createBooking = asybcHandler(async (req, res) => {
 });
 
 // 2. GET ALL BOOKINGS
-const getAllBookings = asybcHandler(async (req, res) => {
+const getAllBookings = asyncHandler(async (req, res) => {
     const {
         status,
         paymentStatus,
@@ -321,7 +320,7 @@ const getAllBookings = asybcHandler(async (req, res) => {
 });
 
 // 3. GET BOOKING BY ID
-const getBookingById = asybcHandler(async (req, res) => {
+const getBookingById = asyncHandler(async (req, res) => {
     const booking = await Booking.findById(req.params.id)
         .populate("bannerUser", "firstName lastName email mobileNumber")
         .populate("hoarding")
@@ -380,7 +379,7 @@ const getBookingById = asybcHandler(async (req, res) => {
 });
 
 // 4. UPDATE BOOKING
-// const updateBooking = asybcHandler(async (req, res) => {
+// const updateBooking = asyncHandler(async (req, res) => {
 //     const { id } = req.params;
 //     const updates = req.body;
 
@@ -651,7 +650,7 @@ const getBookingById = asybcHandler(async (req, res) => {
 //         data: updatedBooking
 //     });
 // });
-const updateBooking = asybcHandler(async (req, res) => {
+const updateBooking = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
@@ -995,7 +994,7 @@ const updateBooking = asybcHandler(async (req, res) => {
 });
 
 // 5. DELETE BOOKING
-const deleteBooking = asybcHandler(async (req, res) => {
+const deleteBooking = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const booking = await Booking.findById(id);
@@ -1330,7 +1329,7 @@ const processNextInQueue = async (queueId) => {
 
 
 // Additional API for worker response
-const respondToWorkRequest = asybcHandler(async (req, res) => {
+const respondToWorkRequest = asyncHandler(async (req, res) => {
     const { requestId, status, rejectionReason } = req.body;
 
     const workRequest = await WorkRequest.findById(requestId)
@@ -1395,7 +1394,7 @@ const respondToWorkRequest = asybcHandler(async (req, res) => {
             type: "worker_approved",
             relatedModel: "WorkRequest",
             relatedId: workRequest._id,
-            actionUrl: `/workerRequest/${workRequest._id}`,
+            actionUrl: `/workRequest/${workRequest._id}`,
             actionLabel: "View Assignment"
         });
     }
@@ -1408,7 +1407,7 @@ const respondToWorkRequest = asybcHandler(async (req, res) => {
 });
 
 // get queue status for a hoarding
-const getQueueStatus = asybcHandler(async (req, res) => {
+const getQueueStatus = asyncHandler(async (req, res) => {
     const { hoardingId } = req.params;
 
     const queue = await Queue.findOne({

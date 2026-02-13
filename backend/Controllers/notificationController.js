@@ -723,7 +723,7 @@ const notificationTemplates = {
     title: "New Work Request",
     message: `You have received a work request from ${workRequest.bannerUser.firstName}`,
     type: "worker_request",
-    relatedModel: "WorkerRequest",
+    relatedModel: "WorkRequest",
     relatedId: workRequest._id,
     actionUrl: `/work-requests/${workRequest._id}`,
     actionLabel: "Respond to Request"
@@ -733,7 +733,7 @@ const notificationTemplates = {
     title: "Work Request Accepted",
     message: `Your work request has been accepted by the worker`,
     type: "worker_approved",
-    relatedModel: "WorkerRequest",
+    relatedModel: "WorkRequest",
     relatedId: workRequest._id,
     actionUrl: `/work-requests/${workRequest._id}`,
     actionLabel: "View Details"
@@ -743,7 +743,7 @@ const notificationTemplates = {
     title: "Work Request Rejected",
     message: `Your work request has been rejected${reason ? `: ${reason}` : ''}`,
     type: "worker_rejected",
-    relatedModel: "WorkerRequest",
+    relatedModel: "WorkRequest",
     relatedId: workRequest._id,
     actionUrl: `/work-requests/${workRequest._id}`,
     actionLabel: "Select New Worker"

@@ -20,21 +20,26 @@ const hoardingSchema = new mongoose.Schema(
       type: String,
     },
     location: {
-      address: { type: String, required: true },
+      address: { type: String },
+      area:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Area",
+        
+      },
       city: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "City",
-        required: true,
+        
       },
       state: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "State",
-        required: true,
+  
       },
       country: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Country",
-        required: true,
+
       },
       pincode: { type: String },
       coordinates: {
@@ -113,9 +118,11 @@ hoardingSchema.pre("save", function (next) {
 
 function autoPopulate(next) {
   this.populate("owner", "firstName lastName email mobileNumber");
-  this.populate("location.city");
-  this.populate("location.state");
-  this.populate("location.country");
+  this.populate("location.area", "name"); 
+  this.populate("location.city", "name"); 
+  this.populate("location.state", "name"); 
+  this.populate("location.country", "name"); 
+  this.populate("dimensions.unit", "name"); 
   next();
 }
 

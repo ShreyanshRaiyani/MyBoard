@@ -484,10 +484,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
     }
 });
 
-/**
- * Get User By ID Controller
- * Retrieves single user with populated references
- */
+
 const getUserById = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
