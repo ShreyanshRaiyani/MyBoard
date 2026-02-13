@@ -13,6 +13,8 @@ const hoardingRoutes = require('./routes/hoardingRoutes.js');
 const notificationRoutes = require('./routes/notificationRoutes.js');
 const queueRoutes = require('./routes/queueRoutes.js');
 const workRequestRoutes = require('./routes/workRequestRoutes.js');
+const planRoutes = require('./routes/planRoutes.js')
+const purchasePlanRoutes = require('./routes/purchasePlanRoutes.js')
 
 const app = express();
 
@@ -42,6 +44,8 @@ app.use('/api/hoarding', hoardingRoutes);
 app.use('/api/notification', notificationRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/workrequest', workRequestRoutes);
+app.use('/api/plan', planRoutes);
+app.use('/api/purchaseplan', purchasePlanRoutes);
 
 // app.use('/admin/api/dashboard', dashboardRoutes);
 
