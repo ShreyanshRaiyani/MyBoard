@@ -54,11 +54,11 @@ const workRequestSchema = new mongoose.Schema(
       default: "Pending",
     },
     workerResponse: {
-      // status: {
-      //   type: String,
-      //   enum: ["Pending", "Accepted", "Rejected"],
-      //   default: "Pending",
-      // },
+      status: {
+        type: String,
+        enum: ["Pending", "Accepted", "Rejected"],
+        default: "Pending",
+      },
       responseDate: { type: Date },
       // remarks: { type: String },
       rejectionReason: { type: String },
