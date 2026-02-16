@@ -8,12 +8,13 @@ const {
     checkExpiredPlans,
     getPurchaseHistory,
 } = require("../Controllers/purchasePlanController");
+const { protect } = require("../middleware/auth.js");
 
-router.post("/purchase", purchasePlan);
-router.get("/user/:id", getUserPurchasedPlans);
-router.get("/active/:id", getActivePlan);
-router.put("/renew", renewPlan);
-router.post("/check-expired", checkExpiredPlans);
-router.get("/history", getPurchaseHistory);
+router.post("/purchase", protect, purchasePlan);
+router.get("/user/:id", protect, getUserPurchasedPlans);
+router.get("/active/:id", protect, getActivePlan);
+router.put("/renew", protect, renewPlan);
+router.post("/check-expired", protect, checkExpiredPlans);
+router.get("/history", protect, getPurchaseHistory);
 
 module.exports = router;

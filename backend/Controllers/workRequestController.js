@@ -586,7 +586,7 @@ const deleteWorkRequest = async (req, res) => {
     if (!isBannerUser && !isSuperAdmin) {
       return res.status(403).json({
         status:0,
-        message: "Only banner user can delete work request"
+        message: "Only banner user and super admin can delete work request"
       });
     }
 
@@ -672,7 +672,7 @@ const reassignWorker = async (req, res) => {
 
     // Check if new worker exists and is a worker
     const newWorker = await User.findById(newWorkerId);
-    if (!newWorker || newWorker.userType !== "worker") {
+    if (!newWorker || newWorker.userType !== "Worker") {
       return res.status(404).json({
         status:0,
         message: "New worker not found or invalid worker"

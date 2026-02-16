@@ -1,11 +1,26 @@
 const asyncHandler = require("express-async-handler");
 const Plan = require("../models/Plan");
 const mongoose = require("mongoose");
+const User = require('../models/User');
+
+const isSuperAdminUser = async (userId) => {
+    const user = await User.findById(userId);
+    return user && user.userType === "SuperAdmin";
+};
 
 // Add Plan
 const addPlan = asyncHandler(async (req, res) => {
     try {
         const { name, notes, currency, price, userCount, gstPercentage, discount, duration, default: isDefault, applicableUserTypes } = req.body;
+
+        const isSuperAdmin = await isSuperAdminUser(req.user._id || req.user.userId);
+
+        if (!isSuperAdmin) {
+            return res.status(200).json({
+                Status: 0,
+                Message: "You are not authorized to add plans",
+            });
+        }
 
         if (!name || price === undefined || duration === undefined) {
             return res.status(200).json({
@@ -46,9 +61,9 @@ const addPlan = asyncHandler(async (req, res) => {
         // If setting as default, unset other defaults for same user types
         if (isDefault && applicableUserTypes && applicableUserTypes.length > 0) {
             await Plan.updateMany(
-                { 
+                {
                     applicableUserTypes: { $in: applicableUserTypes },
-                    default: true 
+                    default: true
                 },
                 { default: false }
             );
@@ -184,6 +199,15 @@ const updatePlan = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
+        const isSuperAdmin = await isSuperAdminUser(req.user._id || req.user.userId);
+
+        if (!isSuperAdmin) {
+            return res.status(200).json({
+                Status: 0,
+                Message: "You are not authorized to update plans",
+            });
+        }
+
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(200).json({
                 Status: 0,
@@ -233,7 +257,7 @@ const updatePlan = asyncHandler(async (req, res) => {
         if (updates.default === true) {
             const userTypesToUpdate = updates.applicableUserTypes || plan.applicableUserTypes;
             await Plan.updateMany(
-                { 
+                {
                     _id: { $ne: id },
                     applicableUserTypes: { $in: userTypesToUpdate },
                 },
@@ -278,6 +302,15 @@ const updatePlan = asyncHandler(async (req, res) => {
 const deletePlan = asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
+
+        const isSuperAdmin = await isSuperAdminUser(req.user._id || req.user.userId);
+
+        if (!isSuperAdmin) {
+            return res.status(200).json({
+                Status: 0,
+                Message: "You are not authorized to delete plans",
+            });
+        }
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(200).json({
