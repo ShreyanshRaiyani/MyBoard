@@ -7,7 +7,8 @@ const {
     removeFromQueue,
     forceProcessNext,
     updateQueueEntry,
-    toggleQueueStatus
+    toggleQueueStatus,
+    runQueueCron
 } = require('../Controllers/queueController.js');
 const { protect } = require("../middleware/auth.js");
 
@@ -18,6 +19,7 @@ router.delete("/:queueId", protect, removeFromQueue);
 router.put("/:queueId/entries/:entryId", protect, updateQueueEntry);
 router.post("/:queueId/force", protect, forceProcessNext);
 router.patch("/:queueId/status", protect, toggleQueueStatus);
+router.post("/cron", protect, runQueueCron);
 
 
 module.exports = router;
