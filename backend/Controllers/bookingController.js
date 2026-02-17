@@ -232,18 +232,6 @@ const createBooking = asyncHandler(async (req, res) => {
         ...notificationTemplates.booking_request(booking, hoarding)
     });
 
-    // Send notification to banner user
-    await sendNotification({
-        userId: req.user.id,
-        title: "Booking Request Created",
-        message: `Your booking request for ${hoarding.hoardingName} has been submitted`,
-        type: "booking_request",
-        relatedModel: "Booking",
-        relatedId: booking._id,
-        actionUrl: `/bookings/${booking._id}`,
-        actionLabel: "View Request"
-    });
-
     const populatedBooking = await Booking.findById(booking._id)
         .populate("bannerUser", "firstName lastName email mobileNumber")
         .populate("hoarding")
@@ -794,6 +782,8 @@ const updateBooking = asyncHandler(async (req, res) => {
                         await queue.save();
                     }
 
+                    await syncHoardingStatusIfAvailable(booking.hoarding._id);
+
                     // Notify next in queue if this was the first position
                     if (rejectedIndex === 0 && queue.queue.length > 0) {
                         await notifyNextInQueue(queue);
@@ -1075,12 +1065,7 @@ const deleteBooking = asyncHandler(async (req, res) => {
         }
     }
 
-    // If booking is approved, make hoarding available again
-    if (booking.ownerResponse.status === "Approved") {
-        await Hoarding.findByIdAndUpdate(booking.hoarding, {
-            status: "Active"
-        });
-    }
+    await syncHoardingStatusIfAvailable(booking.hoarding);
 
     await booking.deleteOne();
 
@@ -1103,6 +1088,22 @@ const deleteBooking = asyncHandler(async (req, res) => {
 });
 
 // HELPER FUNCTIONS
+
+async function syncHoardingStatusIfAvailable(hoardingId) {
+    const hasApprovedBooking = await Booking.exists({
+        hoarding: hoardingId,
+        "ownerResponse.status": "Approved"
+    });
+
+    const queue = await Queue.findOne({ hoarding: hoardingId });
+    const hasQueue = Boolean(queue && (queue.currentBooking || queue.queue.length > 0));
+
+    if (!hasApprovedBooking && !hasQueue) {
+        await Hoarding.findByIdAndUpdate(hoardingId, {
+            status: "Active"
+        });
+    }
+}
 
 // Create queue for hoarding
 const createQueueForHoarding = async (hoardingId, hoardingOwnerId, currentBookingId, nextAvailableDate) => {

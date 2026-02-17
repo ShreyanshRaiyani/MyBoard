@@ -92,14 +92,14 @@ const userSchema = new mongoose.Schema(
       ref: "Plan",
     },
 
-    // Added for rating system
-    averageRating: {
+    // Added for feedback system
+    averageFeedback: {
       type: Number,
       default: 0,
       min: 0,
       max: 5,
     },
-    totalRatings: {
+    totalFeedbacks: {
       type: Number,
       default: 0,
     },

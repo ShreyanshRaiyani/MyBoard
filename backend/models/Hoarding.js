@@ -81,7 +81,7 @@ const hoardingSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    averageRating: {
+    averageFeedback: {
       type: Number,
       default: 0,
       min: 0,

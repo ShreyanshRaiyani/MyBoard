@@ -94,16 +94,16 @@ const workRequestSchema = new mongoose.Schema(
       // workerSignature: { type: String },
       // bannerUserSignature: { type: String },
     },
-    rating: {
-      ratingByBannerUser: {
+    feedback: {
+      feedbackByBannerUser: {
         rating: { type: Number, min: 1, max: 5 },
         review: { type: String },
-        ratedDate: { type: Date },
+        feedbackDate: { type: Date },
       },
-      ratingByWorker: {
+      feedbackByWorker: {
         rating: { type: Number, min: 1, max: 5 },
         review: { type: String },
-        ratedDate: { type: Date },
+        feedbackDate: { type: Date },
       },
     },
     issues: [

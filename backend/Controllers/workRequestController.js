@@ -459,55 +459,55 @@ const updateWorkRequest = async (req, res) => {
       });
     }
 
-    // Handle rating by banner user
-    if (updates.rating?.ratingByBannerUser) {
+    // Handle feedback by banner user
+    if (updates.feedback?.feedbackByBannerUser) {
       if (req.user.id !== workRequest.bannerUser?._id.toString()) {
         return res.status(403).json({
           status: 0,
-          message: "Only banner user can rate the worker"
+          message: "Only banner user can give feedback to the worker"
         });
       }
 
-      workRequest.rating = workRequest.rating || {};
-      workRequest.rating.ratingByBannerUser = {
-        rating: updates.rating.ratingByBannerUser.rating,
-        review: updates.rating.ratingByBannerUser.review,
-        ratedDate: new Date()
+      workRequest.feedback = workRequest.feedback || {};
+      workRequest.feedback.feedbackByBannerUser = {
+        rating: updates.feedback.feedbackByBannerUser.rating,
+        review: updates.feedback.feedbackByBannerUser.review,
+        feedbackDate: new Date()
       };
 
       // Simple notification to worker
       await sendNotification({
         userId: workRequest.worker._id,
-        title: "New Rating",
-        message: `You received a ${updates.rating.ratingByBannerUser.rating}-star rating`,
-        type: "rating_received",
+        title: "New Feedback",
+        message: `You received a ${updates.feedback.feedbackByBannerUser.rating}-star feedback`,
+        type: "feedback_received",
         relatedModel: "WorkRequest",
         relatedId: workRequest._id
       });
     }
 
-    // Handle rating by worker
-    if (updates.rating?.ratingByWorker) {
+    // Handle feedback by worker
+    if (updates.feedback?.feedbackByWorker) {
       if (req.user.id !== workRequest.worker?._id.toString()) {
         return res.status(403).json({
           status: 0,
-          message: "Only worker can rate the banner user"
+          message: "Only worker can give feedback to the banner user"
         });
       }
 
-      workRequest.rating = workRequest.rating || {};
-      workRequest.rating.ratingByWorker = {
-        rating: updates.rating.ratingByWorker.rating,
-        review: updates.rating.ratingByWorker.review,
-        ratedDate: new Date()
+      workRequest.feedback = workRequest.feedback || {};
+      workRequest.feedback.feedbackByWorker = {
+        rating: updates.feedback.feedbackByWorker.rating,
+        review: updates.feedback.feedbackByWorker.review,
+        feedbackDate: new Date()
       };
 
       // Simple notification to banner user
       await sendNotification({
         userId: workRequest.bannerUser._id,
-        title: "New Rating",
-        message: `You received a ${updates.rating.ratingByWorker.rating}-star rating from worker`,
-        type: "rating_received",
+        title: "New Feedback",
+        message: `You received a ${updates.feedback.feedbackByWorker.rating}-star feedback from worker`,
+        type: "feedback_received",
         relatedModel: "WorkRequest",
         relatedId: workRequest._id
       });
@@ -752,38 +752,38 @@ const reassignWorker = async (req, res) => {
 };
 
 // HELPER FUNCTIONS
-const updateWorkerRating = async (workerId, newRating) => {
+const updateWorkerFeedback = async (workerId, newFeedback) => {
   try {
     const worker = await User.findById(workerId);
     if (worker && worker.userType === "worker") {
-      // Get all ratings for this worker
+      // Get all feedbacks for this worker
       const workRequests = await WorkRequest.find({
         worker: workerId,
-        "rating.ratingByBannerUser.rating": { $exists: true }
+        "feedback.feedbackByBannerUser.rating": { $exists: true }
       });
 
-      const ratings = workRequests.map(wr => wr.rating.ratingByBannerUser.rating);
-      ratings.push(newRating);
+      const feedbacks = workRequests.map(wr => wr.feedback.feedbackByBannerUser.rating);
+      feedbacks.push(newFeedback);
 
-      const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+      const averageFeedback = feedbacks.reduce((sum, feedback) => sum + feedback, 0) / feedbacks.length;
       
-      // Update worker's average rating
-      worker.averageRating = averageRating;
-      worker.totalRatings = ratings.length;
+      // Update worker's average feedback
+      worker.averageFeedback = averageFeedback;
+      worker.totalFeedbacks = feedbacks.length;
       await worker.save();
 
-      // Notify worker about rating update
+      // Notify worker about feedback update
       await sendNotification({
         userId: workerId,
-        title: "Rating Updated",
-        message: `Your average rating is now ${averageRating.toFixed(1)} stars`,
-        type: "rating_updated",
+        title: "Feedback Updated",
+        message: `Your average feedback is now ${averageFeedback.toFixed(1)} stars`,
+        type: "feedback_updated",
         relatedModel: "User",
         relatedId: workerId
       });
     }
   } catch (error) {
-    console.error("Update worker rating error:", error);
+    console.error("Update worker feedback error:", error);
   }
 };
 

@@ -1,5 +1,13 @@
 const Notification = require('../models/notification');
 const User = require("../models/User");
+const { notifyUser } = require('../middleware/socketHandler');
+const {
+  sendNotificationEmail,
+  sendBookingNotificationEmail,
+  sendWorkRequestNotificationEmail,
+  sendPaymentNotificationEmail,
+  sendSystemNotificationEmail
+} = require('../middleware/emailNotificationService');
 
 // 1. CREATE NOTIFICATION (Utility function for other controllers)
 const createNotification = async (notificationData) => {
@@ -23,7 +31,11 @@ const sendNotification = async ({
   relatedId = null,
   actionUrl = null,
   actionLabel = null,
-  expiresInDays = 30
+  expiresInDays = 30,
+  sendEmail = true,
+  emailTemplate = 'bookingNotification',
+  emailData = {},
+  req = null
 }) => {
   try {
     // Check if user exists
@@ -65,12 +77,38 @@ const sendNotification = async ({
 
     const notification = await createNotification(notificationData);
 
-    // Here you can integrate with:
-    // 1. WebSocket for real-time notifications
-    // 2. Email service
-    // 3. Push notifications
-    // 4. SMS service
+    // Send real-time Socket.io notification
     sendRealTimeNotification(userId, notification);
+
+    // Send email notification (if enabled and email exists)
+    if (sendEmail && user.email) {
+      try {
+        const emailPayload = {
+          firstName: user.firstName || 'User',
+          notificationTitle: title,
+          notificationMessage: message,
+          actionUrl,
+          actionLabel,
+          ...emailData
+        };
+
+        // Send email asynchronously (don't wait for it)
+        sendNotificationEmail(
+          user.email,
+          emailTemplate,
+          emailPayload,
+          title,
+          req
+        ).catch(error => {
+          console.error(`Failed to send email to ${user.email}:`, error.message);
+        });
+
+        console.log(`Email notification queued for user ${userId} at ${user.email}`);
+      } catch (emailError) {
+        console.error(`Error sending email notification:`, emailError.message);
+        // Don't fail the notification if email fails
+      }
+    }
 
     return notification;
   } catch (error) {
@@ -607,10 +645,23 @@ const updateNotification = async (req, res) => {
 
 // Real-time notification sender (WebSocket implementation)
 const sendRealTimeNotification = (userId, notification) => {
-  // Implement your WebSocket logic here
-  // Example:
-  // io.to(`user_${userId}`).emit('new_notification', notification);
-  console.log(`Real-time notification sent to user ${userId}:`, notification.title);
+  // Use Socket.io to send real-time notification
+  try {
+    notifyUser(userId, 'new_notification', {
+      id: notification._id,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      timestamp: notification.createdAt,
+      isRead: notification.isRead,
+      actionUrl: notification.actionUrl,
+      actionLabel: notification.actionLabel,
+      relatedTo: notification.relatedTo
+    });
+    console.log(`Real-time notification sent to user ${userId}:`, notification.title);
+  } catch (error) {
+    console.error('Error sending real-time notification:', error);
+  }
 };
 
 // Predefined notification templates
