@@ -4,11 +4,20 @@ const socketIo = require('socket.io');
 const app = require('./app');
 const connectDB = require('./Database/connect');
 const { initializeSocket } = require('./middleware/socketHandler');
+const { startPlanExpiryCron } = require('./middleware/planExpiryCron');
+const { startQueueExpiryCron } = require('./middleware/queueExpiryCron');
 
 // Start Server
 const PORT = process.env.PORT || 4000;
 
-connectDB(process.env.MONGODB_URI);
+connectDB(process.env.MONGODB_URI)
+    .then(() => {
+        startPlanExpiryCron();
+        startQueueExpiryCron();
+    })
+    .catch((error) => {
+        console.error('DB connection failed:', error);
+    });
 
 // Create HTTP server with Socket.io
 const server = http.createServer(app);
@@ -20,10 +29,9 @@ const io = socketIo(server, {
     }
 });
 
-// Initialize Socket.io event handlers
 initializeSocket(io);
 
-// Make io accessible to other parts of the app
+
 global.io = io;
 
 server.listen(PORT, () => {

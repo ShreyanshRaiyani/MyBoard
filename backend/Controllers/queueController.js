@@ -3,6 +3,7 @@ const Queue = require("../models/Queue");
 const Hoarding = require("../models/Hoarding");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
+const { runQueueExpiryJob } = require("../middleware/queueExpiryCron");
 
 async function syncHoardingStatusIfAvailable(hoardingId) {
   const hasApprovedBooking = await Booking.exists({
@@ -453,6 +454,23 @@ const toggleQueueStatus = async (req, res) => {
   }
 };
 
+const runQueueCron = async (req, res) => {
+  try {
+    const result = await runQueueExpiryJob();
+    res.status(200).json({
+      status: 1,
+      message: "Queue cron executed successfully",
+      data: result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 0,
+      message: "Queue cron failed",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
 module.exports = {
   getAllQueues,
   getQueueById,
@@ -460,5 +478,6 @@ module.exports = {
   removeFromQueue,
   forceProcessNext,
   updateQueueEntry,
-  toggleQueueStatus
+  toggleQueueStatus,
+  runQueueCron
 };
