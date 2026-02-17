@@ -23,4 +23,6 @@ jobs:
 
       - name: Smoke run
         working-directory: backend
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
         run: timeout 15s node index.js
