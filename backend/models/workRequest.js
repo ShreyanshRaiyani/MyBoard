@@ -54,11 +54,11 @@ const workRequestSchema = new mongoose.Schema(
       default: "Pending",
     },
     workerResponse: {
-      // status: {
-      //   type: String,
-      //   enum: ["Pending", "Accepted", "Rejected"],
-      //   default: "Pending",
-      // },
+      status: {
+        type: String,
+        enum: ["Pending", "Accepted", "Rejected"],
+        default: "Pending",
+      },
       responseDate: { type: Date },
       // remarks: { type: String },
       rejectionReason: { type: String },
@@ -94,16 +94,16 @@ const workRequestSchema = new mongoose.Schema(
       // workerSignature: { type: String },
       // bannerUserSignature: { type: String },
     },
-    rating: {
-      ratingByBannerUser: {
+    feedback: {
+      feedbackByBannerUser: {
         rating: { type: Number, min: 1, max: 5 },
         review: { type: String },
-        ratedDate: { type: Date },
+        feedbackDate: { type: Date },
       },
-      ratingByWorker: {
+      feedbackByWorker: {
         rating: { type: Number, min: 1, max: 5 },
         review: { type: String },
-        ratedDate: { type: Date },
+        feedbackDate: { type: Date },
       },
     },
     issues: [

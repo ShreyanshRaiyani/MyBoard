@@ -7,9 +7,9 @@ const taskSchema = new mongoose.Schema(
       unique: true,
       required: true,
     },
-    workAssignment: {
+    workRequest: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "WorkerRequest",
+      ref: "WorkRequest",
       required: true,
     },
     worker: {

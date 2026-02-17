@@ -1,4 +1,4 @@
-const WorkRequest = require('../models/workerRequest');
+const WorkRequest = require('../models/workRequest');
 const Booking = require("../models/Booking");
 const User = require("../models/User");
 const Hoarding = require("../models/Hoarding");
@@ -148,7 +148,7 @@ const createWorkRequest = async (req, res) => {
 
     // Update booking with work request reference
     await Booking.findByIdAndUpdate(bannerRequest, {
-      workAssignment: workRequest._id
+      workRequest: workRequest._id
     });
 
     // Send confirmation to banner user
@@ -296,25 +296,23 @@ const updateWorkRequest = async (req, res) => {
 
     if (!workRequest) {
       return res.status(404).json({
-        status:0,
+        status: 0,
         message: "Work request not found"
       });
     }
 
     // Handle worker response
     if (updates.workerResponse) {
-      // Only worker can respond to work request
-      if (req.user.id !== workRequest.worker._id.toString()) {
+      if (req.user.id !== workRequest.worker?._id.toString()) {
         return res.status(403).json({
-          status:0,
+          status: 0,
           message: "Only assigned worker can respond to work request"
         });
       }
 
-      // Only pending requests can be responded to
       if (workRequest.RequestStatus !== "Pending") {
         return res.status(400).json({
-          status:0,
+          status: 0,
           message: "Cannot respond to non-pending work request"
         });
       }
@@ -323,7 +321,7 @@ const updateWorkRequest = async (req, res) => {
       
       if (!["Accepted", "Rejected"].includes(status)) {
         return res.status(400).json({
-          status:0,
+          status: 0,
           message: "Invalid response status"
         });
       }
@@ -335,185 +333,90 @@ const updateWorkRequest = async (req, res) => {
       };
 
       // Add to work progress
+      workRequest.workProgress = workRequest.workProgress || [];
       workRequest.workProgress.push({
         status: `Worker ${status}`,
         description: `Worker ${status.toLowerCase()} the work request`,
-        updatedBy: req.user.id
+        updatedBy: req.user.id,
+        updatedAt: new Date()
       });
 
-      // Send notification to banner user
-      const notificationType = status === "Accepted" ? "worker_approved" : "worker_rejected";
-      await sendNotification({
-        userId: workRequest.bannerUser._id,
-        title: `Worker ${status} Work Request`,
-        message: `Worker has ${status.toLowerCase()} your work request${rejectionReason ? `. Reason: ${rejectionReason}` : ''}`,
-        type: notificationType,
-        relatedModel: "WorkRequest",
-        relatedId: workRequest._id,
-        actionUrl: `/work-requests/${workRequest._id}`,
-        actionLabel: "View Details"
-      });
-
-      // Notify hoarding owner about worker response
-      const hoarding = await Hoarding.findById(workRequest.hoarding._id).populate("owner");
-      await sendNotification({
-        userId: hoarding.owner._id,
-        title: `Worker ${status} Work Request`,
-        message: `Worker has ${status.toLowerCase()} the work request for hoarding "${hoarding.hoardingName}"`,
-        type: "worker_response",
-        relatedModel: "WorkRequest",
-        relatedId: workRequest._id
-      });
-
+      // Only send essential notifications
       if (status === "Rejected") {
         // Notify banner user to select different worker
         await sendNotification({
           userId: workRequest.bannerUser._id,
-          title: "Select New Worker",
-          message: "Worker rejected the request. You can select a different worker.",
-          type: "worker_rejected_select_new",
+          title: "Worker Rejected Request",
+          message: rejectionReason || "Worker rejected the request. Please select a different worker.",
+          type: "worker_rejected",
           relatedModel: "WorkRequest",
-          relatedId: workRequest._id,
-          actionUrl: `/bookings/${workRequest.bannerRequest._id}`,
-          actionLabel: "Select Worker"
-        });
-      } else if (status === "Accepted") {
-        // Notify banner user about next steps
-        await sendNotification({
-          userId: workRequest.bannerUser._id,
-          title: "Make Payment",
-          message: "Worker accepted the request. Please make payment to proceed.",
-          type: "payment_required",
-          relatedModel: "WorkRequest",
-          relatedId: workRequest._id,
-          actionUrl: `/work-requests/${workRequest._id}/payment`,
-          actionLabel: "Make Payment"
+          relatedId: workRequest._id
         });
       }
     }
 
     // Handle payment updates
     if (updates.payment) {
-      // Only banner user or admin can update payment
-      if (req.user.id !== workRequest.bannerUser._id.toString() && req.user.userType !== "SuperAdmin") {
+      if (req.user.id !== workRequest.bannerUser?._id.toString() && req.user.userType !== "SuperAdmin") {
         return res.status(403).json({
-          status:0,
+          status: 0,
           message: "Only banner user can update payment"
         });
       }
 
-      if (updates.payment.paymentStatus === "Paid") {
-        workRequest.payment = {
-          ...workRequest.payment,
-          paymentStatus: "Paid",
-          paymentDate: new Date(),
-          transactionId: updates.payment.transactionId
-        };
+      workRequest.payment = {
+        ...workRequest.payment,
+        ...updates.payment,
+        updatedAt: new Date()
+      };
 
-        // Add to work progress
+      if (updates.payment.paymentStatus === "Paid") {
+        workRequest.payment.paymentDate = new Date();
+        
+        workRequest.workProgress = workRequest.workProgress || [];
         workRequest.workProgress.push({
           status: "Payment Completed",
           description: "Payment has been made for the work",
-          updatedBy: req.user.id
+          updatedBy: req.user.id,
+          updatedAt: new Date()
         });
 
-        // Send notification to worker using template
+        // Simple notification to worker
         await sendNotification({
           userId: workRequest.worker._id,
-          ...notificationTemplates.payment(
-            { model: "WorkRequest", id: workRequest._id, url: `/work-requests/${workRequest._id}` },
-            workRequest.payment.workerFee,
-            "Received"
-          )
-        });
-
-        // Notify hoarding owner
-        const hoarding = await Hoarding.findById(workRequest.hoarding._id).populate("owner");
-        await sendNotification({
-          userId: hoarding.owner._id,
-          title: "Payment Received for Work",
-          message: `Payment of ₹${workRequest.payment.workerFee} received for work on "${hoarding.hoardingName}"`,
+          title: "Payment Received",
+          message: `Payment of ₹${workRequest.payment.workerFee} has been received`,
           type: "payment_received",
           relatedModel: "WorkRequest",
           relatedId: workRequest._id
-        });
-
-        // Notify banner user
-        await sendNotification({
-          userId: workRequest.bannerUser._id,
-          title: "Payment Successful",
-          message: `Payment of ₹${workRequest.payment.workerFee} completed successfully`,
-          type: "payment_success",
-          relatedModel: "WorkRequest",
-          relatedId: workRequest._id,
-          actionUrl: `/work-requests/${workRequest._id}`,
-          actionLabel: "View Receipt"
-        });
-      } else if (updates.payment.paymentStatus === "Failed") {
-        // Notify banner user about payment failure
-        await sendNotification({
-          userId: workRequest.bannerUser._id,
-          title: "Payment Failed",
-          message: "Payment failed. Please try again.",
-          type: "payment_failed",
-          relatedModel: "WorkRequest",
-          relatedId: workRequest._id,
-          actionUrl: `/work-requests/${workRequest._id}/payment`,
-          actionLabel: "Retry Payment"
         });
       }
     }
 
     // Handle work progress updates
     if (updates.workProgress) {
-      // Only worker or admin can update work progress
-      if (req.user.id !== workRequest.worker._id.toString() && req.user.userType !== "SuperAdmin") {
+      if (req.user.id !== workRequest.worker?._id.toString() && req.user.userType !== "SuperAdmin") {
         return res.status(403).json({
-          status:0,
+          status: 0,
           message: "Only assigned worker can update work progress"
         });
       }
 
+      workRequest.workProgress = workRequest.workProgress || [];
       workRequest.workProgress.push({
         status: updates.workProgress.status,
         description: updates.workProgress.description,
         images: updates.workProgress.images || [],
-        updatedBy: req.user.id
+        updatedBy: req.user.id,
+        updatedAt: new Date()
       });
 
-      // Send notification to banner user
-      let notificationTitle = "Work Progress Updated";
-      let notificationType = "work_progress";
-      
-      if (updates.workProgress.status === "Work Started") {
-        notificationTitle = "Work Started";
-        notificationType = "work_started";
-      } else if (updates.workProgress.status === "In Progress") {
-        notificationTitle = "Work In Progress";
-        notificationType = "work_in_progress";
-      } else if (updates.workProgress.status === "Delayed") {
-        notificationTitle = "Work Delayed";
-        notificationType = "work_delayed";
-      }
-
+      // Simple notification to banner user
       await sendNotification({
         userId: workRequest.bannerUser._id,
-        title: notificationTitle,
-        message: `Worker: ${updates.workProgress.description}`,
-        type: notificationType,
-        relatedModel: "WorkRequest",
-        relatedId: workRequest._id,
-        actionUrl: `/work-requests/${workRequest._id}`,
-        actionLabel: "View Progress"
-      });
-
-      // Notify hoarding owner about progress
-      const hoarding = await Hoarding.findById(workRequest.hoarding._id).populate("owner");
-      await sendNotification({
-        userId: hoarding.owner._id,
-        title: "Work Progress Update",
-        message: `Work progress updated for hoarding "${hoarding.hoardingName}": ${updates.workProgress.status}`,
-        type: "work_progress_update",
+        title: "Work Progress Updated",
+        message: updates.workProgress.description,
+        type: "work_progress",
         relatedModel: "WorkRequest",
         relatedId: workRequest._id
       });
@@ -521,10 +424,9 @@ const updateWorkRequest = async (req, res) => {
 
     // Handle completion details
     if (updates.completionDetails) {
-      // Only worker can mark as complete
-      if (req.user.id !== workRequest.worker._id.toString()) {
+      if (req.user.id !== workRequest.worker?._id.toString()) {
         return res.status(403).json({
-          status:0,
+          status: 0,
           message: "Only assigned worker can mark work as complete"
         });
       }
@@ -536,115 +438,84 @@ const updateWorkRequest = async (req, res) => {
         afterImages: updates.completionDetails.afterImages || []
       };
 
-      // Add to work progress
+      workRequest.RequestStatus = "Completed";
+
+      workRequest.workProgress = workRequest.workProgress || [];
       workRequest.workProgress.push({
         status: "Work Completed",
         description: "Worker has completed the work",
-        updatedBy: req.user.id
+        updatedBy: req.user.id,
+        updatedAt: new Date()
       });
 
-      // Send notification to banner user
+      // Simple notification to banner user
       await sendNotification({
         userId: workRequest.bannerUser._id,
         title: "Work Completed",
-        message: "Worker has completed the work. Please review and rate.",
-        type: "work_completed",
-        relatedModel: "WorkRequest",
-        relatedId: workRequest._id,
-        actionUrl: `/work-requests/${workRequest._id}`,
-        actionLabel: "Review Work"
-      });
-
-      // Notify hoarding owner
-      const hoarding = await Hoarding.findById(workRequest.hoarding._id).populate("owner");
-      await sendNotification({
-        userId: hoarding.owner._id,
-        title: "Work Completed",
-        message: `Work completed for hoarding "${hoarding.hoardingName}"`,
+        message: "Worker has completed the work. Please review.",
         type: "work_completed",
         relatedModel: "WorkRequest",
         relatedId: workRequest._id
       });
     }
 
-    // Handle rating by banner user
-    if (updates.rating && updates.rating.ratingByBannerUser) {
-      // Only banner user can rate the worker
-      if (req.user.id !== workRequest.bannerUser._id.toString()) {
+    // Handle feedback by banner user
+    if (updates.feedback?.feedbackByBannerUser) {
+      if (req.user.id !== workRequest.bannerUser?._id.toString()) {
         return res.status(403).json({
-          status:0,
-          message: "Only banner user can rate the worker"
+          status: 0,
+          message: "Only banner user can give feedback to the worker"
         });
       }
 
-      // Only allow rating after work is completed
-      if (!workRequest.completionDetails || !workRequest.completionDetails.completedDate) {
-        return res.status(400).json({
-          status:0,
-          message: "Cannot rate before work is completed"
-        });
-      }
-
-      workRequest.rating = {
-        ...workRequest.rating,
-        ratingByBannerUser: {
-          rating: updates.rating.ratingByBannerUser.rating,
-          review: updates.rating.ratingByBannerUser.review,
-          ratedDate: new Date()
-        }
+      workRequest.feedback = workRequest.feedback || {};
+      workRequest.feedback.feedbackByBannerUser = {
+        rating: updates.feedback.feedbackByBannerUser.rating,
+        review: updates.feedback.feedbackByBannerUser.review,
+        feedbackDate: new Date()
       };
 
-      // Send notification to worker about rating
+      // Simple notification to worker
       await sendNotification({
         userId: workRequest.worker._id,
-        title: "New Rating Received",
-        message: `You received a ${updates.rating.ratingByBannerUser.rating}-star rating${updates.rating.ratingByBannerUser.review ? ` with review: "${updates.rating.ratingByBannerUser.review}"` : ''}`,
-        type: "rating_received",
+        title: "New Feedback",
+        message: `You received a ${updates.feedback.feedbackByBannerUser.rating}-star feedback`,
+        type: "feedback_received",
         relatedModel: "WorkRequest",
-        relatedId: workRequest._id,
-        actionUrl: `/work-requests/${workRequest._id}`,
-        actionLabel: "View Rating"
+        relatedId: workRequest._id
       });
-
-      // Update worker's average rating
-      await updateWorkerRating(workRequest.worker._id, updates.rating.ratingByBannerUser.rating);
     }
 
-    // Handle rating by worker
-    if (updates.rating && updates.rating.ratingByWorker) {
-      // Only worker can rate the banner user
-      if (req.user.id !== workRequest.worker._id.toString()) {
+    // Handle feedback by worker
+    if (updates.feedback?.feedbackByWorker) {
+      if (req.user.id !== workRequest.worker?._id.toString()) {
         return res.status(403).json({
-          status:0,
-          message: "Only worker can rate the banner user"
+          status: 0,
+          message: "Only worker can give feedback to the banner user"
         });
       }
 
-      workRequest.rating = {
-        ...workRequest.rating,
-        ratingByWorker: {
-          rating: updates.rating.ratingByWorker.rating,
-          review: updates.rating.ratingByWorker.review,
-          ratedDate: new Date()
-        }
+      workRequest.feedback = workRequest.feedback || {};
+      workRequest.feedback.feedbackByWorker = {
+        rating: updates.feedback.feedbackByWorker.rating,
+        review: updates.feedback.feedbackByWorker.review,
+        feedbackDate: new Date()
       };
 
-      // Send notification to banner user about rating
+      // Simple notification to banner user
       await sendNotification({
         userId: workRequest.bannerUser._id,
-        title: "New Rating Received",
-        message: `You received a ${updates.rating.ratingByWorker.rating}-star rating from worker${updates.rating.ratingByWorker.review ? ` with review: "${updates.rating.ratingByWorker.review}"` : ''}`,
-        type: "rating_received",
+        title: "New Feedback",
+        message: `You received a ${updates.feedback.feedbackByWorker.rating}-star feedback from worker`,
+        type: "feedback_received",
         relatedModel: "WorkRequest",
-        relatedId: workRequest._id,
-        actionUrl: `/work-requests/${workRequest._id}`,
-        actionLabel: "View Rating"
+        relatedId: workRequest._id
       });
     }
 
     // Handle issues
     if (updates.issues) {
-      // Any party can report issues
+      workRequest.issues = workRequest.issues || [];
       workRequest.issues.push({
         issueType: updates.issues.issueType,
         description: updates.issues.description,
@@ -652,93 +523,44 @@ const updateWorkRequest = async (req, res) => {
         reportedDate: new Date()
       });
 
-      // Send notification to other party
-      const notificationToUserId = req.user.id === workRequest.bannerUser._id.toString() 
-        ? workRequest.worker._id 
-        : workRequest.bannerUser._id;
+      // Notify the other party
+      const otherPartyId = req.user.id === workRequest.bannerUser?._id.toString() 
+        ? workRequest.worker?._id 
+        : workRequest.bannerUser?._id;
 
-      const reporterName = req.user.id === workRequest.bannerUser._id.toString()
-        ? "Banner User"
-        : "Worker";
-
-      await sendNotification({
-        userId: notificationToUserId,
-        title: "Issue Reported",
-        message: `${reporterName} reported an issue: ${updates.issues.issueType}`,
-        type: "issue_reported",
-        relatedModel: "WorkRequest",
-        relatedId: workRequest._id,
-        actionUrl: `/work-requests/${workRequest._id}`,
-        actionLabel: "View Issue"
-      });
-
-      // Notify hoarding owner about issue
-      const hoarding = await Hoarding.findById(workRequest.hoarding._id).populate("owner");
-      await sendNotification({
-        userId: hoarding.owner._id,
-        title: "Issue Reported on Work",
-        message: `An issue has been reported for work on "${hoarding.hoardingName}": ${updates.issues.issueType}`,
-        type: "issue_reported",
-        relatedModel: "WorkRequest",
-        relatedId: workRequest._id
-      });
-    }
-
-    // Handle issue resolution
-    if (updates.issueResolution) {
-      // Only worker or admin can resolve issues
-      if (req.user.id !== workRequest.worker._id.toString() && req.user.userType !== "SuperAdmin") {
-        return res.status(403).json({
-          status:0,
-          message: "Only worker or admin can resolve issues"
-        });
-      }
-
-      const { issueId, resolution } = updates.issueResolution;
-      const issue = workRequest.issues.id(issueId);
-      
-      if (issue) {
-        issue.resolvedDate = new Date();
-        issue.resolution = resolution;
-
-        // Send notification to banner user
+      if (otherPartyId) {
         await sendNotification({
-          userId: workRequest.bannerUser._id,
-          title: "Issue Resolved",
-          message: `Issue has been resolved: ${resolution}`,
-          type: "issue_resolved",
-          relatedModel: "WorkRequest",
-          relatedId: workRequest._id,
-          actionUrl: `/work-requests/${workRequest._id}`,
-          actionLabel: "View Resolution"
-        });
-
-        // Notify hoarding owner
-        const hoarding = await Hoarding.findById(workRequest.hoarding._id).populate("owner");
-        await sendNotification({
-          userId: hoarding.owner._id,
-          title: "Issue Resolved",
-          message: `Issue resolved for work on "${hoarding.hoardingName}"`,
-          type: "issue_resolved",
+          userId: otherPartyId,
+          title: "Issue Reported",
+          message: updates.issues.description,
+          type: "issue_reported",
           relatedModel: "WorkRequest",
           relatedId: workRequest._id
         });
       }
     }
 
+    // Save the document
+    workRequest.updatedAt = new Date();
     await workRequest.save();
-    const updatedRequest = await WorkRequest.findById(id);
+    
+    // Fetch updated document with populated fields
+    const updatedRequest = await WorkRequest.findById(id)
+      .populate('worker')
+      .populate('bannerUser')
+      .populate('hoarding');
 
     res.status(200).json({
-      status:1,
+      status: 1,
       message: "Work request updated successfully",
       data: updatedRequest
     });
   } catch (error) {
     console.error("Update work request error:", error);
     res.status(500).json({
-      status:0,
-      message: "Server error"
+      status: 0,
+      message: "Server error",
+      error: error.message
     });
   }
 };
@@ -764,7 +586,7 @@ const deleteWorkRequest = async (req, res) => {
     if (!isBannerUser && !isSuperAdmin) {
       return res.status(403).json({
         status:0,
-        message: "Only banner user can delete work request"
+        message: "Only banner user and super admin can delete work request"
       });
     }
 
@@ -799,7 +621,7 @@ const deleteWorkRequest = async (req, res) => {
 
     // Clear work assignment from booking
     await Booking.findByIdAndUpdate(workRequest.bannerRequest._id, {
-      $unset: { workAssignment: "" }
+      $unset: { workRequest: "" }
     });
 
     await workRequest.deleteOne();
@@ -850,7 +672,7 @@ const reassignWorker = async (req, res) => {
 
     // Check if new worker exists and is a worker
     const newWorker = await User.findById(newWorkerId);
-    if (!newWorker || newWorker.userType !== "worker") {
+    if (!newWorker || newWorker.userType !== "Worker") {
       return res.status(404).json({
         status:0,
         message: "New worker not found or invalid worker"
@@ -930,38 +752,38 @@ const reassignWorker = async (req, res) => {
 };
 
 // HELPER FUNCTIONS
-const updateWorkerRating = async (workerId, newRating) => {
+const updateWorkerFeedback = async (workerId, newFeedback) => {
   try {
     const worker = await User.findById(workerId);
     if (worker && worker.userType === "worker") {
-      // Get all ratings for this worker
+      // Get all feedbacks for this worker
       const workRequests = await WorkRequest.find({
         worker: workerId,
-        "rating.ratingByBannerUser.rating": { $exists: true }
+        "feedback.feedbackByBannerUser.rating": { $exists: true }
       });
 
-      const ratings = workRequests.map(wr => wr.rating.ratingByBannerUser.rating);
-      ratings.push(newRating);
+      const feedbacks = workRequests.map(wr => wr.feedback.feedbackByBannerUser.rating);
+      feedbacks.push(newFeedback);
 
-      const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+      const averageFeedback = feedbacks.reduce((sum, feedback) => sum + feedback, 0) / feedbacks.length;
       
-      // Update worker's average rating
-      worker.averageRating = averageRating;
-      worker.totalRatings = ratings.length;
+      // Update worker's average feedback
+      worker.averageFeedback = averageFeedback;
+      worker.totalFeedbacks = feedbacks.length;
       await worker.save();
 
-      // Notify worker about rating update
+      // Notify worker about feedback update
       await sendNotification({
         userId: workerId,
-        title: "Rating Updated",
-        message: `Your average rating is now ${averageRating.toFixed(1)} stars`,
-        type: "rating_updated",
+        title: "Feedback Updated",
+        message: `Your average feedback is now ${averageFeedback.toFixed(1)} stars`,
+        type: "feedback_updated",
         relatedModel: "User",
         relatedId: workerId
       });
     }
   } catch (error) {
-    console.error("Update worker rating error:", error);
+    console.error("Update worker feedback error:", error);
   }
 };
 

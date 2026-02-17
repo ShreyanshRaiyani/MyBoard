@@ -1,5 +1,13 @@
 const Notification = require('../models/notification');
 const User = require("../models/User");
+const { notifyUser } = require('../middleware/socketHandler');
+const {
+  sendNotificationEmail,
+  sendBookingNotificationEmail,
+  sendWorkRequestNotificationEmail,
+  sendPaymentNotificationEmail,
+  sendSystemNotificationEmail
+} = require('../middleware/emailNotificationService');
 
 // 1. CREATE NOTIFICATION (Utility function for other controllers)
 const createNotification = async (notificationData) => {
@@ -23,7 +31,11 @@ const sendNotification = async ({
   relatedId = null,
   actionUrl = null,
   actionLabel = null,
-  expiresInDays = 30
+  expiresInDays = 30,
+  sendEmail = true,
+  emailTemplate = 'bookingNotification',
+  emailData = {},
+  req = null
 }) => {
   try {
     // Check if user exists
@@ -65,12 +77,38 @@ const sendNotification = async ({
 
     const notification = await createNotification(notificationData);
 
-    // Here you can integrate with:
-    // 1. WebSocket for real-time notifications
-    // 2. Email service
-    // 3. Push notifications
-    // 4. SMS service
+    // Send real-time Socket.io notification
     sendRealTimeNotification(userId, notification);
+
+    // Send email notification (if enabled and email exists)
+    if (sendEmail && user.email) {
+      try {
+        const emailPayload = {
+          firstName: user.firstName || 'User',
+          notificationTitle: title,
+          notificationMessage: message,
+          actionUrl,
+          actionLabel,
+          ...emailData
+        };
+
+        // Send email asynchronously (don't wait for it)
+        sendNotificationEmail(
+          user.email,
+          emailTemplate,
+          emailPayload,
+          title,
+          req
+        ).catch(error => {
+          console.error(`Failed to send email to ${user.email}:`, error.message);
+        });
+
+        console.log(`Email notification queued for user ${userId} at ${user.email}`);
+      } catch (emailError) {
+        console.error(`Error sending email notification:`, emailError.message);
+        // Don't fail the notification if email fails
+      }
+    }
 
     return notification;
   } catch (error) {
@@ -127,7 +165,7 @@ const getUserNotifications = async (req, res) => {
     });
 
     res.status(200).json({
-      status:1,
+      status: 1,
       count: notifications.length,
       total,
       unreadCount,
@@ -138,7 +176,7 @@ const getUserNotifications = async (req, res) => {
   } catch (error) {
     console.error("Get notifications error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -155,13 +193,13 @@ const getUnreadCount = async (req, res) => {
     });
 
     res.status(200).json({
-      status:1,
+      status: 1,
       unreadCount: count
     });
   } catch (error) {
     console.error("Get unread count error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error"
     });
   }
@@ -171,7 +209,7 @@ const getUnreadCount = async (req, res) => {
 const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const notification = await Notification.findOne({
       _id: id,
       user: req.user.id,
@@ -180,7 +218,7 @@ const markAsRead = async (req, res) => {
 
     if (!notification) {
       return res.status(404).json({
-        status:0,
+        status: 0,
         message: "Notification not found"
       });
     }
@@ -192,14 +230,14 @@ const markAsRead = async (req, res) => {
     }
 
     res.status(200).json({
-      status:1,
+      status: 1,
       message: "Notification marked as read",
       data: notification
     });
   } catch (error) {
     console.error("Mark as read error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error"
     });
   }
@@ -223,14 +261,14 @@ const markAllAsRead = async (req, res) => {
     );
 
     res.status(200).json({
-      status:1,
+      status: 1,
       message: `Marked ${result.modifiedCount} notifications as read`,
       modifiedCount: result.modifiedCount
     });
   } catch (error) {
     console.error("Mark all as read error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error"
     });
   }
@@ -240,7 +278,7 @@ const markAllAsRead = async (req, res) => {
 const deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const notification = await Notification.findOne({
       _id: id,
       user: req.user.id
@@ -248,7 +286,7 @@ const deleteNotification = async (req, res) => {
 
     if (!notification) {
       return res.status(404).json({
-        status:0,
+        status: 0,
         message: "Notification not found"
       });
     }
@@ -257,13 +295,13 @@ const deleteNotification = async (req, res) => {
     await notification.save();
 
     res.status(200).json({
-      status:1,
+      status: 1,
       message: "Notification deleted successfully"
     });
   } catch (error) {
     console.error("Delete notification error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error"
     });
   }
@@ -273,7 +311,7 @@ const deleteNotification = async (req, res) => {
 const deleteAllNotifications = async (req, res) => {
   try {
     const { type, isRead } = req.query;
-    
+
     const query = {
       user: req.user.id
     };
@@ -294,14 +332,14 @@ const deleteAllNotifications = async (req, res) => {
     );
 
     res.status(200).json({
-      status:1,
+      status: 1,
       message: `Deleted ${result.modifiedCount} notifications`,
       deletedCount: result.modifiedCount
     });
   } catch (error) {
     console.error("Delete all notifications error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error"
     });
   }
@@ -321,7 +359,7 @@ const getNotificationById = async (req, res) => {
 
     if (!notification) {
       return res.status(404).json({
-        status:0,
+        status: 0,
         message: "Notification not found"
       });
     }
@@ -334,13 +372,13 @@ const getNotificationById = async (req, res) => {
     }
 
     res.status(200).json({
-      status:1,
+      status: 1,
       data: notification
     });
   } catch (error) {
     console.error("Get notification by ID error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error"
     });
   }
@@ -352,14 +390,14 @@ const createBulkNotifications = async (req, res) => {
     // Only admin can send bulk notifications
     if (req.user.userType !== "SuperAdmin") {
       return res.status(403).json({
-        status:0,
+        status: 0,
         message: "Only admin can send bulk notifications"
       });
     }
 
-    const { 
-      title, 
-      message, 
+    const {
+      title,
+      message,
       type = "system",
       userType, // Send to specific user type
       userIds, // Or specific user IDs
@@ -371,7 +409,7 @@ const createBulkNotifications = async (req, res) => {
     // Validate input
     if (!title || !message) {
       return res.status(400).json({
-        status:0,
+        status: 0,
         message: "Title and message are required"
       });
     }
@@ -428,7 +466,7 @@ const createBulkNotifications = async (req, res) => {
     }
 
     res.status(201).json({
-      status:1,
+      status: 1,
       message: `Notifications sent to ${result.length} users`,
       sentCount: result.length,
       errorCount: errors.length,
@@ -437,7 +475,7 @@ const createBulkNotifications = async (req, res) => {
   } catch (error) {
     console.error("Create bulk notifications error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error"
     });
   }
@@ -448,7 +486,7 @@ const getNotificationStats = async (req, res) => {
   try {
     if (req.user.userType !== "SuperAdmin") {
       return res.status(403).json({
-        status:0,
+        status: 0,
         message: "Only admin can view notification statistics"
       });
     }
@@ -536,7 +574,7 @@ const getNotificationStats = async (req, res) => {
     ]);
 
     res.status(200).json({
-      status:1,
+      status: 1,
       data: {
         stats,
         totals: totalStats[0] || { total: 0, read: 0, unread: 0 }
@@ -545,7 +583,7 @@ const getNotificationStats = async (req, res) => {
   } catch (error) {
     console.error("Get notification stats error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error"
     });
   }
@@ -555,11 +593,11 @@ const getNotificationStats = async (req, res) => {
 const updateNotification = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Only admin can update notifications
     if (req.user.userType !== "SuperAdmin") {
       return res.status(403).json({
-        status:0,
+        status: 0,
         message: "Only admin can update notifications"
       });
     }
@@ -568,7 +606,7 @@ const updateNotification = async (req, res) => {
 
     if (!notification) {
       return res.status(404).json({
-        status:0,
+        status: 0,
         message: "Notification not found"
       });
     }
@@ -590,14 +628,14 @@ const updateNotification = async (req, res) => {
     );
 
     res.status(200).json({
-      status:1,
+      status: 1,
       message: "Notification updated successfully",
       data: updatedNotification
     });
   } catch (error) {
     console.error("Update notification error:", error);
     res.status(500).json({
-      status:0,
+      status: 0,
       message: "Server error"
     });
   }
@@ -607,17 +645,31 @@ const updateNotification = async (req, res) => {
 
 // Real-time notification sender (WebSocket implementation)
 const sendRealTimeNotification = (userId, notification) => {
-  // Implement your WebSocket logic here
-  // Example:
-  // io.to(`user_${userId}`).emit('new_notification', notification);
-  console.log(`Real-time notification sent to user ${userId}:`, notification.title);
+  // Use Socket.io to send real-time notification
+  try {
+    notifyUser(userId, 'new_notification', {
+      id: notification._id,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      timestamp: notification.createdAt,
+      isRead: notification.isRead,
+      actionUrl: notification.actionUrl,
+      actionLabel: notification.actionLabel,
+      relatedTo: notification.relatedTo
+    });
+    console.log(`Real-time notification sent to user ${userId}:`, notification.title);
+  } catch (error) {
+    console.error('Error sending real-time notification:', error);
+  }
 };
 
 // Predefined notification templates
 const notificationTemplates = {
+  // Booking Templates
   booking_request: (booking, hoarding) => ({
     title: "New Booking Request",
-    message: `You have a new booking request for ${hoarding.hoardingName}`,
+    message: `You have received a new booking request for ${hoarding?.hoardingName || 'your hoarding'} from ${booking?.bannerUser?.firstName || 'a user'}`,
     type: "booking_request",
     relatedModel: "Booking",
     relatedId: booking._id,
@@ -627,7 +679,7 @@ const notificationTemplates = {
 
   booking_approved: (booking, hoarding) => ({
     title: "Booking Approved",
-    message: `Your booking for ${hoarding.hoardingName} has been approved`,
+    message: `Your booking request for ${hoarding?.hoardingName || 'the hoarding'} has been approved`,
     type: "booking_approved",
     relatedModel: "Booking",
     relatedId: booking._id,
@@ -637,7 +689,7 @@ const notificationTemplates = {
 
   booking_rejected: (booking, hoarding, reason) => ({
     title: "Booking Rejected",
-    message: `Your booking for ${hoarding.hoardingName} has been rejected${reason ? `: ${reason}` : ''}`,
+    message: `Your booking request for ${hoarding?.hoardingName || 'the hoarding'} was rejected${reason ? `: ${reason}` : ''}`,
     type: "booking_rejected",
     relatedModel: "Booking",
     relatedId: booking._id,
@@ -645,11 +697,84 @@ const notificationTemplates = {
     actionLabel: "View Details"
   }),
 
+  booking_cancelled: (booking) => ({
+    title: "Booking Cancelled",
+    message: `Booking ${booking?.requestNumber || ''} has been cancelled`,
+    type: "booking_cancelled",
+    relatedModel: "Booking",
+    relatedId: booking._id,
+    actionUrl: `/bookings/${booking._id}`,
+    actionLabel: "View Details"
+  }),
+
+  // Queue Templates
+  queue_joined: (booking, position, hoarding) => ({
+        title: "Added to Queue",
+        message: `Your booking request has been added to queue for ${hoarding?.hoardingName || 'the hoarding'}. Position: ${position}`,
+        type: "queue_joined",
+        relatedModel: "Booking",
+        relatedId: booking._id,
+        actionUrl: `/bookings/${booking._id}`,
+        actionLabel: "View Booking"
+    }),
+    
+    queue_position_updated: (booking, newPosition, hoarding) => ({
+        title: "Queue Position Updated",
+        message: `Your queue position for ${hoarding?.hoardingName || 'the hoarding'} is now #${newPosition}`,
+        type: "queue_position_updated",
+        relatedModel: "Booking",
+        relatedId: booking._id,
+        actionUrl: `/bookings/${booking._id}`,
+        actionLabel: "View Position"
+    }),
+    
+    queue_next: (booking, hoarding) => ({
+        title: "You're Next in Queue",
+        message: `Your booking for ${hoarding?.hoardingName || 'the hoarding'} is now next in line`,
+        type: "queue_next",
+        relatedModel: "Booking",
+        relatedId: booking._id,
+        actionUrl: `/bookings/${booking._id}`,
+        actionLabel: "View Booking"
+    }),
+    
+    queue_advanced_to_current: (booking, hoarding) => ({
+        title: "Booking Ready for Review",
+        message: `Your booking request for ${hoarding?.hoardingName || 'the hoarding'} is now ready for owner approval`,
+        type: "queue_advanced_to_current",
+        relatedModel: "Booking",
+        relatedId: booking._id,
+        actionUrl: `/bookings/${booking._id}`,
+        actionLabel: "View Booking"
+    }),
+
+    booking_pending_review: (booking, hoarding) => ({
+        title: "New Booking Ready for Review",
+        message: `A booking request for ${hoarding?.hoardingName || 'your hoarding'} is ready for your review`,
+        type: "booking_pending_review",
+        relatedModel: "Booking",
+        relatedId: booking._id,
+        actionUrl: `/bookings/${booking._id}`,
+        actionLabel: "Review Booking"
+    }),
+
+    // Payment Templates
+    payment: (booking, amount, status) => ({
+        title: `Payment ${status}`,
+        message: `Payment of ₹${amount} for booking ${booking?.requestNumber || ''} has been ${status.toLowerCase()}`,
+        type: status === "Completed" ? "payment_confirmation" : "payment_received",
+        relatedModel: "Booking",
+        relatedId: booking.id,
+        actionUrl: booking.url,
+        actionLabel: "View Payment"
+    }),
+
+  // Worker Templates
   worker_request: (workRequest, worker) => ({
     title: "New Work Request",
     message: `You have received a work request from ${workRequest.bannerUser.firstName}`,
     type: "worker_request",
-    relatedModel: "WorkerRequest",
+    relatedModel: "WorkRequest",
     relatedId: workRequest._id,
     actionUrl: `/work-requests/${workRequest._id}`,
     actionLabel: "Respond to Request"
@@ -659,7 +784,7 @@ const notificationTemplates = {
     title: "Work Request Accepted",
     message: `Your work request has been accepted by the worker`,
     type: "worker_approved",
-    relatedModel: "WorkerRequest",
+    relatedModel: "WorkRequest",
     relatedId: workRequest._id,
     actionUrl: `/work-requests/${workRequest._id}`,
     actionLabel: "View Details"
@@ -669,21 +794,21 @@ const notificationTemplates = {
     title: "Work Request Rejected",
     message: `Your work request has been rejected${reason ? `: ${reason}` : ''}`,
     type: "worker_rejected",
-    relatedModel: "WorkerRequest",
+    relatedModel: "WorkRequest",
     relatedId: workRequest._id,
     actionUrl: `/work-requests/${workRequest._id}`,
     actionLabel: "Select New Worker"
   }),
 
-  payment: (entity, amount, type) => ({
-    title: `Payment ${type}`,
-    message: `Payment of ₹${amount} ${type.toLowerCase()} successfully`,
-    type: "payment",
-    relatedModel: entity.model,
-    relatedId: entity.id,
-    actionUrl: entity.url,
-    actionLabel: "View Receipt"
-  }),
+  // payment: (entity, amount, type) => ({
+  //   title: `Payment ${type}`,
+  //   message: `Payment of ₹${amount} ${type.toLowerCase()} successfully`,
+  //   type: "payment",
+  //   relatedModel: entity.model,
+  //   relatedId: entity.id,
+  //   actionUrl: entity.url,
+  //   actionLabel: "View Receipt"
+  // }),
 
   system: (title, message) => ({
     title,
@@ -698,7 +823,7 @@ module.exports = {
   sendNotification,
   createNotification,
   notificationTemplates,
-  
+
   // API endpoints
   getUserNotifications,
   getUnreadCount,

@@ -12,12 +12,12 @@ const {
 const { protect } = require("../middleware/auth.js");
 
 router.get("/", protect, getAllQueues);
-router.get("/:id", protect, getQueueById);
 router.get("/my-positions", protect, getMyQueuePositions);
-router.delete("/:id", protect, removeFromQueue);
-router.put("/:id", protect, updateQueueEntry);
-router.post("/:id/force", protect, forceProcessNext);
-router.patch("/:id/status", protect, toggleQueueStatus);
+router.get("/:id", protect, getQueueById);
+router.delete("/:queueId", protect, removeFromQueue);
+router.put("/:queueId/entries/:entryId", protect, updateQueueEntry);
+router.post("/:queueId/force", protect, forceProcessNext);
+router.patch("/:queueId/status", protect, toggleQueueStatus);
 
 
 module.exports = router;
