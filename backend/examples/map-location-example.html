@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hoarding Location Map - Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        #map {
+            width: 100%;
+            height: 500px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .controls {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .btn:hover {
+            background: #45a049;
+        }
+        .btn-secondary {
+            background: #2196F3;
+        }
+        .btn-secondary:hover {
+            background: #0b7dda;
+        }
+        .info-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin-top: 10px;
+        }
+        .info-box h3 {
+            margin-top: 0;
+        }
+        .count-item {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <h1>🗺️ Hoarding Location Map</h1>
+    
+    <div class="instructions">
+        <strong>Instructions:</strong>
+        <ol>
+            <li>Enter your API credentials below</li>
+            <li>Click anywhere on the map to set hoarding location</li>
+            <li>Click "Analyze Location" to get nearby counts</li>
+        </ol>
+    </div>
+
+    <div class="controls">
+        <h3>Configuration</h3>
+        <div style="margin-bottom: 15px;">
+            <label><strong>Hoarding ID:</strong></label><br>
+            <input type="text" id="hoardingId" placeholder="Enter hoarding ID" style="padding: 8px; width: 300px;">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label><strong>Auth Token:</strong></label><br>
+            <input type="text" id="authToken" placeholder="Enter JWT token" style="padding: 8px; width: 300px;">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label><strong>API Base URL:</strong></label><br>
+            <input type="text" id="apiUrl" value="http://localhost:4000" style="padding: 8px; width: 300px;">
+        </div>
+        <div>
+            <label><strong>Search Radius (meters):</strong></label><br>
+            <input type="number" id="radius" value="500" min="100" max="5000" step="100" style="padding: 8px; width: 150px;">
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="controls">
+        <button class="btn" onclick="analyzeLocation()">📊 Analyze Location</button>
+        <button class="btn btn-secondary" onclick="clearResults()">🔄 Clear Results</button>
+    </div>
+
+    <div id="results" style="display: none;">
+        <div class="info-box">
+            <h3>📍 Current Coordinates</h3>
+            <p><strong>Latitude:</strong> <span id="currentLat">-</span></p>
+            <p><strong>Longitude:</strong> <span id="currentLng">-</span></p>
+        </div>
+
+        <div class="info-box" id="countsBox" style="display: none;">
+            <h3>📊 Nearby Places (within <span id="radiusDisplay">500</span>m)</h3>
+            <div>
+                <div class="count-item">🏬 Malls: <span id="mallsCount">0</span></div>
+                <div class="count-item">🏪 Shops: <span id="shopsCount">0</span></div>
+                <div class="count-item">🚏 Bus Stands: <span id="busStandsCount">0</span></div>
+                <div class="count-item">🚦 Traffic Signals: <span id="trafficSignalsCount">0</span></div>
+            </div>
+            <div style="margin-top: 15px;">
+                <strong>Footfall Category:</strong> <span id="footfallCategory" style="font-size: 18px;">-</span>
+            </div>
+            <div style="margin-top: 10px; color: #666;">
+                <small>Last Updated: <span id="lastUpdated">-</span></small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Replace YOUR_GOOGLE_MAPS_API_KEY with your actual API key -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY"></script>
+    
+    <script>
+        let map;
+        let marker;
+        let currentCoordinates = null;
+
+        // Initialize map
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 28.7041, lng: 77.1025 }, // Default: Delhi
+                zoom: 13,
+                mapTypeControl: true,
+                streetViewControl: true,
+                fullscreenControl: true
+            });
+
+            // Add click listener to map
+            map.addListener('click', (event) => {
+                setHoardingLocation(event.latLng.lat(), event.latLng.lng());
+            });
+        }
+
+        // Set hoarding location on map click
+        async function setHoardingLocation(lat, lng) {
+            const hoardingId = document.getElementById('hoardingId').value;
+            const token = document.getElementById('authToken').value;
+            const apiUrl = document.getElementById('apiUrl').value;
+
+            if (!hoardingId || !token) {
+                alert('Please enter Hoarding ID and Auth Token first!');
+                return;
+            }
+
+            // Update or create marker
+            if (marker) {
+                marker.setMap(null);
+            }
+            marker = new google.maps.Marker({
+                position: { lat, lng },
+                map: map,
+                title: 'Hoarding Location',
+                animation: google.maps.Animation.DROP
+            });
+
+            // Center map on new location
+            map.panTo({ lat, lng });
+
+            // Store current coordinates
+            currentCoordinates = { latitude: lat, longitude: lng };
+
+            // Update display
+            document.getElementById('currentLat').textContent = lat.toFixed(6);
+            document.getElementById('currentLng').textContent = lng.toFixed(6);
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('countsBox').style.display = 'none';
+
+            // Send to backend
+            try {
+                const response = await fetch(`${apiUrl}/api/hoarding/${hoardingId}/set-coordinates`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ latitude: lat, longitude: lng })
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 1) {
+                    alert('✅ Location updated successfully! Now click "Analyze Location" to get nearby counts.');
+                } else {
+                    alert('❌ Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('❌ Network error: ' + error.message);
+            }
+        }
+
+        // Analyze location and get nearby counts
+        async function analyzeLocation() {
+            const hoardingId = document.getElementById('hoardingId').value;
+            const token = document.getElementById('authToken').value;
+            const apiUrl = document.getElementById('apiUrl').value;
+            const radius = document.getElementById('radius').value;
+
+            if (!hoardingId || !token) {
+                alert('Please enter Hoarding ID and Auth Token first!');
+                return;
+            }
+
+            if (!currentCoordinates) {
+                alert('Please set a location on the map first by clicking on it!');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiUrl}/api/hoarding/${hoardingId}/analyze-location?radius=${radius}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 1) {
+                    const nearby = data.data.nearbyPlaces;
+                    
+                    // Update counts
+                    document.getElementById('mallsCount').textContent = nearby.mallsCount;
+                    document.getElementById('shopsCount').textContent = nearby.shopsCount;
+                    document.getElementById('busStandsCount').textContent = nearby.busStandsCount;
+                    document.getElementById('trafficSignalsCount').textContent = nearby.trafficSignalsCount;
+                    document.getElementById('footfallCategory').textContent = nearby.totalFootfall;
+                    document.getElementById('radiusDisplay').textContent = radius;
+                    document.getElementById('lastUpdated').textContent = new Date(nearby.lastUpdated).toLocaleString();
+                    
+                    // Show results
+                    document.getElementById('countsBox').style.display = 'block';
+                } else {
+                    alert('❌ Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('❌ Network error: ' + error.message);
+            }
+        }
+
+        // Clear results
+        function clearResults() {
+            if (marker) {
+                marker.setMap(null);
+                marker = null;
+            }
+            currentCoordinates = null;
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('countsBox').style.display = 'none';
+        }
+
+        // Initialize map on load
+        window.onload = initMap;
+    </script>
+</body>
+</html>
