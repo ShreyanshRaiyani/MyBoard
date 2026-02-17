@@ -3,6 +3,7 @@ const PurchasePlan = require("../models/purchasePlan");
 const Plan = require("../models/Plan");
 const User = require("../models/User");
 const mongoose = require("mongoose");
+const { runPlanExpiryJob } = require("../middleware/planExpiryCron");
 
 // Purchase a plan
 const purchasePlan = asyncHandler(async (req, res) => {
@@ -249,26 +250,11 @@ const renewPlan = asyncHandler(async (req, res) => {
 // Check and mark expired plans
 const checkExpiredPlans = asyncHandler(async (req, res) => {
     try {
-        const now = new Date();
-
-        // Find all plans that have expired
-        const expiredPlans = await PurchasePlan.updateMany(
-            {
-                endDate: { $lte: now },
-                isExpired: false,
-            },
-            {
-                isExpired: true,
-                expiredAt: now,
-            }
-        );
-
+        const result = await runPlanExpiryJob();
         res.status(200).json({
             Status: 1,
             Message: "Expired plans checked and updated",
-            data: {
-                expiredCount: expiredPlans.modifiedCount,
-            },
+            data: result,
         });
 
     } catch (error) {
