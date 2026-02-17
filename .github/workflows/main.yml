@@ -1,1 +1,26 @@
+name: CI
 
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Smoke run
+        working-directory: backend
+        run: timeout 15s node index.js
