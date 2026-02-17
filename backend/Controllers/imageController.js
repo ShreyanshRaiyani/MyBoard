@@ -1,135 +1,132 @@
-const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
+const cloudinary = require("cloudinary").v2;
 
-require('dotenv').config();
+require("dotenv").config();
 
-const s3 = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
-// Helper to compute base URL (prefer env APP_BASE_URL, fallback to request origin in controller)
-const getBaseUrl = (req) => {
-  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, '');
-  return `${req.protocol}://${req.get('host')}`;
-};
 
 // POST /images/upload
 const uploadImage = async (req, res) => {
-
   try {
-    if (!req.file) return res.status(400).json({ Status: 0, Message: 'No file provided' });
+    if (!req.file) return res.status(400).json({ Status: 0, Message: "No file provided" });
 
     const originalName = req.file.originalname;
     const filename = `${Date.now()}_${originalName}`;
-    const s3Key = `${filename}`;
 
-    const file = await uploadImageReturnUrl(req.file, s3Key,);
-    console.log('Uploaded file info:', file);
+    const file = await uploadImageReturnUrl(req.file, filename);
+    console.log("Uploaded file info:", file);
 
-    return res.json({ Status: 1, Message: 'Upload successful', Data: { filename, url: file.path } });
+    return res.json({ Status: 1, Message: "Upload successful", Data: { filename, url: file.path } });
   } catch (error) {
-    console.error('uploadImage error:', error);
-    return res.status(500).json({ Status: 0, Message: 'Upload failed', error: error.message });
+    console.error("uploadImage error:", error);
+    return res.status(500).json({ Status: 0, Message: "Upload failed", error: error.message });
   }
 };
 
-
 const uploadImageReturnUrl = async (file, originalName, options = {}) => {
-  if (!file) throw new Error('file is required');
+  if (!file) throw new Error("file is required");
 
   try {
-    const s3Key = `${process.env.AWS_IMAGE_FOLDER}/${originalName}`;
-    const putParams = {
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: s3Key,
-      Body: file.buffer,
-      ContentType: file.mimetype,
+    const publicId = originalName.replace(/^\/+/, "");
+    const uploadOptions = {
+      public_id: publicId,
+      resource_type: "image",
+      overwrite: true,
     };
-    await s3.send(new PutObjectCommand(putParams));
-    const pathOnly = `${s3Key}`;
-    return { filename: originalName, path: pathOnly };
+
+    if (options.folder) {
+      uploadOptions.folder = options.folder;
+    }
+
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, uploadResult) => {
+        if (error) return reject(error);
+        resolve(uploadResult);
+      });
+      stream.end(file.buffer);
+    });
+
+    // Generate URL without version parameter
+    const urlWithoutVersion = cloudinary.url(result.public_id, { 
+      secure: true, 
+      version: false,
+      resource_type: "image"
+    });
+
+    return { filename: result.original_filename, path: urlWithoutVersion, publicId: result.public_id };
   } catch (err) {
-    console.error('uploadImageReturnUrl error:', err && err.message ? err.message : err);
-    throw new Error(`Failed to upload image to S3: ${err && err.message ? err.message : String(err)}`);
+    console.error("uploadImageReturnUrl error:", err && err.message ? err.message : err);
+    throw new Error(`Failed to upload image to Cloudinary: ${err && err.message ? err.message : String(err)}`);
   }
 };
 
 // GET /image/:filename
 const getImage = async (req, res) => {
-  console.log('getImage called');
+  console.log("getImage called");
   try {
     const filename = req.params.filename;
-    if (!filename) return res.status(400).send('filename required');
+    if (!filename) return res.status(400).send("filename required");
 
-    const s3Key = `${filename}`;
+    const publicId = filename.replace(/^\/+/, "");
+    const url = cloudinary.url(publicId, { secure: true });
 
-    const getParams = { Bucket: process.env.AWS_BUCKET_NAME, Key: s3Key };
-    const command = new GetObjectCommand(getParams);
-    const response = await s3.send(command);
-
-    // Set content-type if available
-    if (response.ContentType) res.setHeader('Content-Type', response.ContentType);
-
-    // Stream body to response
-    const stream = response.Body;
-    if (stream && typeof stream.pipe === 'function') {
-      stream.pipe(res);
-    } else {
-      // If Body is a Buffer-like or unexpected, consume and send
-      const chunks = [];
-      for await (const chunk of stream) chunks.push(chunk);
-      const buffer = Buffer.concat(chunks);
-      res.send(buffer);
-    }
+    return res.redirect(url);
   } catch (error) {
-    console.error('getImage error:', error);
-    if (error.name === 'NoSuchKey' || (error.$metadata && error.$metadata.httpStatusCode === 404)) {
-      return res.status(404).send('Image not found');
-    }
-    return res.status(500).send('Error fetching image');
+    console.error("getImage error:", error);
+    return res.status(500).send("Error fetching image");
   }
 };
 
-// helper to delete object(s) from S3. Accepts a key (e.g. "folder/name.jpg") or a filename.
-const deleteFromS3 = async (key) => {
-  if (!key) throw new Error('key is required');
-  const candidates = [];
-  candidates.push(key);
-  if (process.env.AWS_IMAGE_FOLDER && !key.startsWith(process.env.AWS_IMAGE_FOLDER)) {
-    candidates.push(`${process.env.AWS_IMAGE_FOLDER}/${key}`);
-  }
-  console.log('deleteFromS3 candidates:', candidates);
-  for (const candidate of candidates) {
-    try {
-      await s3.send(new DeleteObjectCommand({ Bucket: process.env.AWS_BUCKET_NAME, Key: candidate }));
-      return { status:1, key: candidate };
-    } catch (err) {
-      // log and continue to next candidate
-      console.error('deleteFromS3 attempt failed for', candidate, err && err.message ? err.message : err);
-    }
+const normalizePublicId = (key) => {
+  if (!key) return null;
+
+  if (key.startsWith("http")) {
+    const parts = key.split("/upload/");
+    if (parts.length < 2) return null;
+
+    let remainder = parts[1];
+    remainder = remainder.replace(/^v\d+\//, "");
+    remainder = remainder.replace(/\.[^/.]+$/, "");
+    return remainder;
   }
 
-  // if we reach here, none of the deletions succeeded
-  throw new Error('Failed to delete object from S3');
+  return key.replace(/^\/+/, "");
+};
+
+// helper to delete object(s) from Cloudinary. Accepts a public id or a URL.
+const deleteFromCloudinary = async (key) => {
+  const publicId = normalizePublicId(key);
+  if (!publicId) throw new Error("key is required");
+
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+    if (result.result !== "ok" && result.result !== "not found") {
+      throw new Error(`Cloudinary delete failed: ${result.result}`);
+    }
+    return { status: 1, key: publicId };
+  } catch (err) {
+    console.error("deleteFromS3 error:", err && err.message ? err.message : err);
+    throw new Error("Failed to delete object from Cloudinary");
+  }
 };
 
 // DELETE /images/:filename or DELETE /images (body.key)
 const removeImage = async (req, res) => {
-  console.log('removeImage called', req.params.filename);
-  console.log('removeImage called', req.query.filename);
+  console.log("removeImage called", req.params.filename);
+  console.log("removeImage called", req.query.filename);
   try {
     const filename = req.params.filename;
-    if (!filename) return res.status(400).json({ Status: 0, Message: 'filename/key required' });
+    if (!filename) return res.status(400).json({ Status: 0, Message: "filename/key required" });
 
     const result = await deleteFromS3(filename);
-    return res.status(200).json({ Status: 1, Message: 'Image deleted', key: result.key });
+    return res.status(200).json({ Status: 1, Message: "Image deleted", key: result.key });
   } catch (error) {
-    console.error('removeImage error:', error);
-    return res.status(500).json({ Status: 0, Message: 'Delete failed', error: error.message });
+    console.error("removeImage error:", error);
+    return res.status(500).json({ Status: 0, Message: "Delete failed", error: error.message });
   }
 };
 
-module.exports = { uploadImage, getImage, uploadImageReturnUrl, deleteFromS3, removeImage };
+module.exports = { uploadImage, getImage, uploadImageReturnUrl, deleteFromCloudinary, removeImage };

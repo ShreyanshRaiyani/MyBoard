@@ -2,6 +2,23 @@
 const Queue = require("../models/Queue");
 const Hoarding = require("../models/Hoarding");
 const User = require("../models/User");
+const Booking = require("../models/Booking");
+
+async function syncHoardingStatusIfAvailable(hoardingId) {
+  const hasApprovedBooking = await Booking.exists({
+    hoarding: hoardingId,
+    "ownerResponse.status": "Approved"
+  });
+
+  const queue = await Queue.findOne({ hoarding: hoardingId });
+  const hasQueue = Boolean(queue && (queue.currentBooking || queue.queue.length > 0));
+
+  if (!hasApprovedBooking && !hasQueue) {
+    await Hoarding.findByIdAndUpdate(hoardingId, {
+      status: "Active"
+    });
+  }
+}
 
 // Get all queues (for admin/owners)
 const getAllQueues = async (req, res) => {
@@ -107,7 +124,7 @@ const getQueueById = async (req, res) => {
 // Get user's position in queue (for banner users)
 const getMyQueuePositions = async (req, res) => {
   try {
-    if (req.user.userType !== "bannerUser") {
+    if (req.user.userType !== "BannerUser") {
       return res.status(403).json({
         status:0,
         message: "Only banner users can check their queue positions"
@@ -201,13 +218,14 @@ const removeFromQueue = async (req, res) => {
 
     // Update booking status to rejected
     if (bookingRequestId) {
-      const Booking = require("../models/Booking");
       await Booking.findByIdAndUpdate(bookingRequestId, {
         "ownerResponse.status": "Rejected",
         "ownerResponse.rejectionReason": "User removed themselves from queue",
         "ownerResponse.responseDate": new Date()
       });
     }
+
+    await syncHoardingStatusIfAvailable(queue.hoarding);
 
     // Notify next in queue if any
     if (queue.queue.length > 0) {
@@ -288,7 +306,6 @@ const forceProcessNext = async (req, res) => {
     await queue.save();
 
     // Update booking status to approved
-    const Booking = require("../models/Booking");
     await Booking.findByIdAndUpdate(nextBookingRequest, {
       "ownerResponse.status": "Approved",
       "ownerResponse.responseDate": new Date()

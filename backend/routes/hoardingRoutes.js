@@ -1,20 +1,21 @@
 const express = require("express");
 const router = express.Router();
 const {
-    createHoarding,
+     createHoarding,
     getAllHoardings,
     getHoardingById,
     updateHoarding,
     deleteHoarding,
-    updateHoardingStatus
+    getHoardingsByOwner
 } = require('../Controllers/hoardingController.js');
+const { attachImage}= require('../middleware/uploadimage.js');
 const { protect } = require("../middleware/auth.js");
 
-router.post("/",protect, createHoarding);
+router.post("/",protect,attachImage, createHoarding);
 router.get("/", protect, getAllHoardings);
 router.get("/:id", protect, getHoardingById);
-router.put("/:id", protect, updateHoarding);
+router.put("/:id", protect, attachImage, updateHoarding);
 router.delete("/:id", protect, deleteHoarding);
-router.patch("/status/:id", protect, updateHoardingStatus);
+router.get("/owner/:id", protect, getHoardingsByOwner);
 
 module.exports = router;

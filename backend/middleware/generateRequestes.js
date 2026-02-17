@@ -1,4 +1,4 @@
-const WorkRequest = require('../models/workerRequest');
+const WorkRequest = require('../models/workRequest');
 
 // Generate Request Code
 function generateRequestCandidate() {

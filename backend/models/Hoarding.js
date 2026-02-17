@@ -20,21 +20,26 @@ const hoardingSchema = new mongoose.Schema(
       type: String,
     },
     location: {
-      address: { type: String, required: true },
+      address: { type: String },
+      area:{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Area",
+        
+      },
       city: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "City",
-        required: true,
+        
       },
       state: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "State",
-        required: true,
+  
       },
       country: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Country",
-        required: true,
+
       },
       pincode: { type: String },
       coordinates: {
@@ -44,9 +49,9 @@ const hoardingSchema = new mongoose.Schema(
     },
     dimensions: {
       width: { type: Number, required: true },
-      height: { type: Number, required: true }, 
-      area: { type: Number }, 
-      unit:{type:mongoose.Schema.Types.ObjectId, ref: 'Unit'}
+      height: { type: Number, required: true },
+      area: { type: Number },
+      unit: { type: mongoose.Schema.Types.ObjectId, ref: 'Unit' }
     },
     type: {
       type: String,
@@ -62,21 +67,21 @@ const hoardingSchema = new mongoose.Schema(
     pricePerDay: {
       type: Number,
     },
-    status: {
+    status: { // booking perpose
       type: String,
       enum: ["Active", "Booked", "Inactive"],
       default: "Active",
     },
-    approvalStatus: {
+    approvalStatus: { //approval perpose
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
       default: "Pending",
     },
-    isActive: {
+    isActive: { // hoarding Active or Inactive
       type: Boolean,
       default: true,
     },
-    averageRating: {
+    averageFeedback: {
       type: Number,
       default: 0,
       min: 0,
@@ -85,6 +90,19 @@ const hoardingSchema = new mongoose.Schema(
     totalBookings: {
       type: Number,
       default: 0,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false
+    },
+    deletedAt: {
+      type: Date,
+      default: null
+    },
+    deletedBy: {
+      type: String,
+      default: null,
+      ref: 'User'
     },
   },
   { timestamps: true }
@@ -100,9 +118,11 @@ hoardingSchema.pre("save", function (next) {
 
 function autoPopulate(next) {
   this.populate("owner", "firstName lastName email mobileNumber");
-  this.populate("location.city");
-  this.populate("location.state");
-  this.populate("location.country");
+  this.populate("location.area", "name"); 
+  this.populate("location.city", "name"); 
+  this.populate("location.state", "name"); 
+  this.populate("location.country", "name"); 
+  this.populate("dimensions.unit", "name"); 
   next();
 }
 
