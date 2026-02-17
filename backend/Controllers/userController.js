@@ -565,13 +565,13 @@ const updateUser = asyncHandler(async (req, res) => {
             delete updates.experience;
             delete updates.skills;
             delete updates.availability;
-            delete updates.averageRating;
-            delete updates.totalRatings;
+            delete updates.averageFeedback;
+            delete updates.totalFeedbacks;
         }
 
         if (!isSuperAdmin) {
-            delete updates.averageRating;
-            delete updates.totalRatings;
+            delete updates.averageFeedback;
+            delete updates.totalFeedbacks;
         }
 
         // ========== HANDLE DEFAULT PLAN ==========
@@ -816,26 +816,26 @@ const updateUser = asyncHandler(async (req, res) => {
             updates.experience = experienceNum;
         }
 
-        if (updates.averageRating !== undefined && isSuperAdmin) {
-            const rating = parseFloat(updates.averageRating);
-            if (isNaN(rating) || rating < 0 || rating > 5) {
+        if (updates.averageFeedback !== undefined && isSuperAdmin) {
+            const feedback = parseFloat(updates.averageFeedback);
+            if (isNaN(feedback) || feedback < 0 || feedback > 5) {
                 return res.status(200).json({
                     Status: 0,
-                    Message: "Average rating must be between 0 and 5",
+                    Message: "Average feedback must be between 0 and 5",
                 });
             }
-            updates.averageRating = rating;
+            updates.averageFeedback = feedback;
         }
 
-        if (updates.totalRatings !== undefined && isSuperAdmin) {
-            const total = parseInt(updates.totalRatings);
+        if (updates.totalFeedbacks !== undefined && isSuperAdmin) {
+            const total = parseInt(updates.totalFeedbacks);
             if (isNaN(total) || total < 0) {
                 return res.status(200).json({
                     Status: 0,
-                    Message: "Total ratings must be a positive number",
+                    Message: "Total feedbacks must be a positive number",
                 });
             }
-            updates.totalRatings = total;
+            updates.totalFeedbacks = total;
         }
 
         // ========== CHECK FOR DUPLICATES ==========

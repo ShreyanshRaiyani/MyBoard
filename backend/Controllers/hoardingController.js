@@ -253,7 +253,7 @@ const createHoarding = asyncHandler(async (req, res) => {
             status: "Inactive",
             approvalStatus: "Pending",
             isActive: true,
-            averageRating: 0,
+            averageFeedback: 0,
             totalBookings: 0
         };
 

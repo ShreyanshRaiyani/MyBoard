@@ -11,6 +11,7 @@ const countryRoutes = require('./routes/countryRoutes.js');
 const bookingRoutes = require('./routes/bookingRoutes.js');
 const hoardingRoutes = require('./routes/hoardingRoutes.js');
 const notificationRoutes = require('./routes/notificationRoutes.js');
+const notificationTrackingRoutes = require('./routes/notificationTrackingRoutes.js');
 const queueRoutes = require('./routes/queueRoutes.js');
 const workRequestRoutes = require('./routes/workRequestRoutes.js');
 const planRoutes = require('./routes/planRoutes.js')
@@ -31,7 +32,7 @@ app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
 app.use("/uploads", express.static("uploads"));
 
-app.get('/', (req, res) => { res.send('Welcome To Order'); res.end(); });
+app.get('/', (req, res) => { res.send('Welcome To My Board'); res.end(); });
 app.use('/api/user', userRoutes);
 app.use('/admin/api/user', adminuserRoutes);
 app.use('/api/unit', unitRoutes);
@@ -42,6 +43,7 @@ app.use('/api/country', countryRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/hoarding', hoardingRoutes);
 app.use('/api/notification', notificationRoutes);
+app.use('/api/notification', notificationTrackingRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/workrequest', workRequestRoutes);
 app.use('/api/plan', planRoutes);
