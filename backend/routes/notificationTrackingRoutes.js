@@ -18,13 +18,13 @@ const {
 } = require('../utils/notificationTracking');
 
 /**
- * Middleware to check if user is admin
+ * Middleware to check if user is SuperAdmin
  */
-const isAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== 'admin') {
+const isSuperAdmin = (req, res, next) => {
+  if (!req.user || req.user.userType !== 'SuperAdmin') {
     return res.status(403).json({
       status: 0,
-      message: 'Unauthorized - Admin access required'
+      message: 'Unauthorized - SuperAdmin access required'
     });
   }
   next();
@@ -33,9 +33,9 @@ const isAdmin = (req, res, next) => {
 /**
  * GET /api/notification/tracking/stats
  * View overall notification statistics
- * Admin only
+ * SuperAdmin only
  */
-router.get('/tracking/stats', isAdmin, (req, res) => {
+router.get('/tracking/stats', isSuperAdmin, (req, res) => {
   try {
     const stats = getNotificationStats();
     
@@ -57,12 +57,12 @@ router.get('/tracking/stats', isAdmin, (req, res) => {
 /**
  * GET /api/notification/tracking/user/:userId/history
  * View all notifications sent to a specific user
- * Admin only or the user themselves
+ * SuperAdmin only or the user themselves
  */
 router.get('/tracking/user/:userId/history', (req, res) => {
   try {
-    // Allow user to view their own history or admin to view anyone's
-    if (req.user._id.toString() !== req.params.userId && req.user.role !== 'admin') {
+    // Allow user to view their own history or SuperAdmin to view anyone's
+    if (req.user._id.toString() !== req.params.userId && req.user.userType !== 'SuperAdmin') {
       return res.status(403).json({
         status: 0,
         message: 'You can only view your own notification history'
@@ -91,9 +91,9 @@ router.get('/tracking/user/:userId/history', (req, res) => {
 /**
  * GET /api/notification/tracking/user/:userId/senders
  * View who sent notifications to a specific user
- * Admin only
+ * SuperAdmin only
  */
-router.get('/tracking/user/:userId/senders', isAdmin, (req, res) => {
+router.get('/tracking/user/:userId/senders', isSuperAdmin, (req, res) => {
   try {
     const senders = getNotificationSenders(req.params.userId);
     
@@ -117,9 +117,9 @@ router.get('/tracking/user/:userId/senders', isAdmin, (req, res) => {
 /**
  * GET /api/notification/tracking/module/:module/:function/recipients
  * View all recipients of notifications from a specific controller function
- * Admin only
+ * SuperAdmin only
  */
-router.get('/tracking/module/:module/:function/recipients', isAdmin, (req, res) => {
+router.get('/tracking/module/:module/:function/recipients', isSuperAdmin, (req, res) => {
   try {
     const { module, functionName } = req.params;
     const recipients = getNotificationRecipients(module, functionName);
@@ -145,9 +145,9 @@ router.get('/tracking/module/:module/:function/recipients', isAdmin, (req, res) 
 /**
  * GET /api/notification/tracking/summary
  * Quick overview dashboard
- * Admin only
+ * SuperAdmin only
  */
-router.get('/tracking/summary', isAdmin, (req, res) => {
+router.get('/tracking/summary', isSuperAdmin, (req, res) => {
   try {
     const stats = getNotificationStats();
     
@@ -193,9 +193,9 @@ router.get('/tracking/summary', isAdmin, (req, res) => {
 /**
  * GET /api/notification/tracking/debug
  * Debug route - returns all available tracking information
- * Admin only - use for troubleshooting
+ * SuperAdmin only - use for troubleshooting
  */
-router.get('/tracking/debug', isAdmin, (req, res) => {
+router.get('/tracking/debug', isSuperAdmin, (req, res) => {
   try {
     const fs = require('fs');
     const path = require('path');
@@ -242,9 +242,9 @@ router.get('/tracking/debug', isAdmin, (req, res) => {
 /**
  * POST /api/notification/tracking/clear-logs
  * Clear all notification logs (dangerous - use with caution)
- * Admin only
+ * SuperAdmin only
  */
-router.post('/tracking/clear-logs', isAdmin, (req, res) => {
+router.post('/tracking/clear-logs', isSuperAdmin, (req, res) => {
   try {
     const fs = require('fs');
     const path = require('path');
