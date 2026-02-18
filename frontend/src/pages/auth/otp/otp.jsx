@@ -66,7 +66,7 @@ const OTP = () => {
               </form>
             </div>
 
-            <div className="billboard-tag">Secure • Reliable • Professional</div>
+            {/* <div className="billboard-tag">Secure • Reliable • Professional</div> */}
           </div>
         </div>
       </div>

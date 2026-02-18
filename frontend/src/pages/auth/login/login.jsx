@@ -149,7 +149,7 @@ const Login = () => {
             </div>
             
             {/* Bottom Text */}
-            <div className="billboard-tag">Secure • Reliable • Professional</div>
+            {/* <div className="billboard-tag">Secure • Reliable • Professional</div> */}
           </div>
           
           {/* Metal Frame */}
