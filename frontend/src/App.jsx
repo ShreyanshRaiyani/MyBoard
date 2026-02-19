@@ -1,49 +1,40 @@
-import './App.css'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import React, { Suspense, lazy } from 'react';
-// route-based lazy imports to avoid loading all pages on initial load
-const Login = lazy(() => import('./pages/auth/login/login'));
-const SignUp = lazy(() => import('./pages/auth/signup/signup'));
-const OTP = lazy(() => import('./pages/auth/otp/otp'));
-const MainLayout = lazy(() => import('./components/layout/main/MainLayout'));
-// admin flow is handled inside the Login component now; OTP has its own route
-import PrivateRoutes from './routes/PrivateRoutes';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/auth/Login";
+import SignUp from "./pages/auth/SignUp";
+import OTP from "./pages/auth/OTP";
+import Dashboard from "./pages/Dashboard";
 
 function App() {
-return (
-<Router>
-	<Suspense fallback={<div style={{minHeight: '100vh'}} /> }>
-		<Routes>
-{/* Auth Routes */}
-	<Route path="/login" element={<Login />} />
-	<Route path="/signup" element={<SignUp />} />
-	<Route path="/otp" element={<OTP />} />
+  const isAuthenticated = localStorage.getItem("token"); // or checkRole
 
-<Route path="/" element={<Navigate to="/login" replace />} />
+  return (
+    <BrowserRouter>
+      <Routes>
 
-{/* Protected Dashboard Route */}
-			<Route
-				path="/dashboard"
-				element={
-					<PrivateRoutes>
-						<Suspense fallback={<div className="dashboard-wrapper">Loading...</div>}>
-							<MainLayout title="Dashboard">
-								<div className="dashboard-wrapper">
-									<h2>Welcome to Your Dashboard</h2>
-									<p>Your content goes here...</p>
-								</div>
-							</MainLayout>
-						</Suspense>
-					</PrivateRoutes>
-				}
-			/>
+        {/* Default route */}
+        <Route
+          path="/"
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+          }
+        />
 
-{/* Redirect any unknown routes to login */}
-<Route path="*" element={<Navigate to="/login" replace />} />
-		</Routes>
-	</Suspense>
-</Router>
-)
+        {/* Auth Routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/otp" element={<OTP />} />
+
+        {/* Protected Route */}
+        <Route
+          path="/dashboard"
+          element={
+            isAuthenticated ? <Dashboard /> : <Navigate to="/login" />
+          }
+        />
+
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
