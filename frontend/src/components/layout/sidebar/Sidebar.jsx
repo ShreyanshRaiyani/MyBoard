@@ -100,7 +100,7 @@ const Sidebar = ({ onCollapse }) => {
 
       <div className="sidebar-content">
         {!isCollapsed && (
-          <button className="new-project-btn">
+          <button className="new-project-btn btn-primary">
             <Plus size={18} strokeWidth={2.5} />
             <span>New Project</span>
           </button>

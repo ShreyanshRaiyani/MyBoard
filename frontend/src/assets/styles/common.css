@@ -1,0 +1,70 @@
+/* Global shared styles for common components */
+:root{
+  --bg: #f5f7fa;
+  --text: #1a1a1a;
+  --muted: #666666;
+  --primary: #1f9fdb;
+  --radius: 10px;
+  --card-bg: #ffffff;
+}
+
+/* Reset and utilities */
+img, svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.container-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg,var(--primary),#187fb0);
+  color: #fff;
+  border: none;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+}
+
+.text-muted { color: var(--muted); }
+
+/* Layout helpers */
+.row-gap { gap: 12px; }
+.col-gap { column-gap: 12px; }
+
+/* Accessibility helpers */
+.visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px, 1px, 1px, 1px); white-space: nowrap; }
+
+/* Responsive utility */
+@media (max-width: 768px){
+  :root{ --radius: 8px; }
+}
+
+/* Utility helpers */
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.gap-12 { gap: 12px; }
+.rounded-lg { border-radius: var(--radius); }
+.shadow-lg { box-shadow: 0 6px 24px rgba(0,0,0,0.08); }
+.sticky-top { position: sticky; top: 0; z-index: 900; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.text-center { text-align: center; }
+
