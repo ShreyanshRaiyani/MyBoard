@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// import '../login/Login.css';
 import './otp.css';
 import logo from '../../../assets/logo.svg';
+import axiosInstance from '../../../utils/axiosInstance';
+import { toastSuccess, toastError } from '../../../utils/alertHelper';
+import { storeUserToLocal } from '../../../utils/authHelper';
 
 const OTP = () => {
   const navigate = useNavigate();
@@ -19,13 +21,56 @@ const OTP = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const otpValue = code.join('');
-    console.log('Entered OTP:', otpValue);
-    // TODO: verify OTP via API
-    localStorage.setItem('auth', 'true');
-    navigate('/');
+    const email = localStorage.getItem('email') || '';
+    if (!email) {
+      toastError('No email found — please start from login');
+      return;
+    }
+    try {
+      const res = await axiosInstance.post('/user/verifyOtp', { email, otp: otpValue });
+      const { Status, Message, user, UserToken, defaultCountry, defaultState, defaultCity, device } = res.data || {};
+      if (Status === 1 && user) {
+        try { storeUserToLocal(user, UserToken || '', 'true'); } catch (err) { console.warn('storeUserToLocal failed', err); }
+        if (defaultCountry) {
+          localStorage.setItem('defaultCountry', defaultCountry._id || '');
+          localStorage.setItem('defaultCountryName', defaultCountry.name || '');
+        }
+        if (defaultState) {
+          localStorage.setItem('defaultState', defaultState._id || '');
+          localStorage.setItem('defaultStateName', defaultState.name || '');
+        }
+        if (defaultCity) {
+          localStorage.setItem('defaultCity', defaultCity._id || '');
+          localStorage.setItem('defaultCityName', defaultCity.name || '');
+        }
+        if (device?.status && device.response) {
+          localStorage.setItem('deviceId', device.response.deviceId || '');
+          localStorage.setItem('devicetoken', device.response.devicetoken || '');
+        }
+        toastSuccess(Message || 'OTP verified');
+        // navigate based on userType
+        if (user.userType === 'Admin' || user.userType === 'SuperAdmin') {
+          localStorage.setItem('checkRole', user.userType || 'Admin');
+          try { window.dispatchEvent(new Event('userChanged')); } catch (e) {}
+          navigate('/admin');
+        } else if (user.userType === 'Client') {
+          localStorage.setItem('checkRole', 'Client');
+          try { window.dispatchEvent(new Event('userChanged')); } catch (e) {}
+          navigate('/user');
+        } else {
+          try { window.dispatchEvent(new Event('userChanged')); } catch (e) {}
+          navigate('/dashboard');
+        }
+      } else {
+        toastError(Message || 'Invalid OTP');
+      }
+    } catch (err) {
+      console.error('OTP verify failed', err);
+      toastError('Failed to verify OTP');
+    }
   };
 
   return (

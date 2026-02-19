@@ -4,7 +4,7 @@ import { Search, Bell, MessageCircle, Settings, Menu } from 'lucide-react';
 
 const Header = ({ onMenuToggle, title = 'Dashboard' }) => {
   return (
-    <header className="header-container">
+    <header className="header-container sticky-top">
       <div className="header-left">
         <button className="menu-toggle-btn" onClick={onMenuToggle}>
           <Menu size={24} />
@@ -15,12 +15,12 @@ const Header = ({ onMenuToggle, title = 'Dashboard' }) => {
       </div>
 
       <div className="header-center">
-        <div className="search-wrapper">
+          <div className="search-wrapper">
           <Search size={20} className="search-icon" />
           <input
             type="text"
             placeholder="Search here..."
-            className="search-input"
+            className="search-input input"
           />
         </div>
       </div>
@@ -40,7 +40,7 @@ const Header = ({ onMenuToggle, title = 'Dashboard' }) => {
           <img
             src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=faces"
             alt="User"
-            className="user-avatar"
+            className="user-avatar avatar"
           />
           <div className="user-details">
             <span className="user-name">Johndoe</span>
