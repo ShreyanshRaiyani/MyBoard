@@ -34,7 +34,7 @@ app.use("/uploads", express.static("uploads"));
 
 app.get('/', (req, res) => { res.send('Welcome To My Board'); res.end(); });
 app.use('/api/user', userRoutes);
-app.use('/admin/api/user', adminuserRoutes);
+app.use('/api/admin', adminuserRoutes);
 app.use('/api/unit', unitRoutes);
 app.use('/api/area', areaRoutes);
 app.use('/api/city', cityRoutes);

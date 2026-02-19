@@ -4,6 +4,8 @@ const Hoarding = require("../models/Hoarding");
 const User = require("../models/User");
 const { sendNotification, notificationTemplates } = require("./notificationController");
 const { uploadImageReturnUrl, deleteFromCloudinary } = require('./imageController');
+// const { findNearbyPlaces } = require('../middleware/mapplsService');
+const { findNearbyOverpass}  = require('../middleware/overpassService');
 
 // Helper function to handle multiple image uploads with indexed tracking
 const uploadHoardingImages = async (files, req) => {
@@ -325,6 +327,48 @@ const createHoarding = asyncHandler(async (req, res) => {
             message: "Server error",
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
+    }
+});
+
+// GET nearby POIs for a hoarding (radius in meters)
+const getNearbyPOIs = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const radius = parseInt(req.query.radius) || 1000;
+    const categories = (req.query.categories && req.query.categories.split(',')) || ['hospital','traffic_signal','mall','busstand','landmark'];
+
+    const hoarding = await Hoarding.findById(id);
+    if (!hoarding) {
+        return res.status(404).json({ status:0, message: 'Hoarding not found' });
+    }
+
+    const lat = hoarding.location?.coordinates?.latitude;
+    const lon = hoarding.location?.coordinates?.longitude;
+
+    if (!lat || !lon) {
+        return res.status(400).json({ status:0, message: 'Hoarding does not have coordinates' });
+    }
+
+    try {
+
+        // Final fallback: Overpass (OpenStreetMap)
+        try {
+            const overpass = await findNearbyOverpass(lat, lon, radius, categories);
+            return res.status(200).json({
+                status:1,
+                hoardingId: id,
+                coordinates: { lat, lon },
+                radius,
+                counts: overpass.counts,
+                suggestions: overpass.suggestions.slice(0,10),
+                raw: overpass.results
+            });
+        } catch (ovErr) {
+            console.error('Overpass fallback failed:', ovErr);
+            return res.status(500).json({ status:0, message: 'Failed to fetch nearby places from any provider' });
+        }
+    } catch (err) {
+        console.error('Nearby POI error:', err);
+        res.status(500).json({ status:0, message: 'Failed to fetch nearby places' });
     }
 });
 
@@ -937,5 +981,6 @@ module.exports = {
     updateHoarding,
     deleteHoarding,
     permanentDeleteHoarding,
-    getHoardingsByOwner
+    getHoardingsByOwner,
+    getNearbyPOIs
 };

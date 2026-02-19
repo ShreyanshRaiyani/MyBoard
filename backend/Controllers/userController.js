@@ -26,11 +26,16 @@ const signUp = asyncHandler(async (req, res) => {
             userType,
             birthDate,
             alternateMobileNumber,
-            whatsappNumber,
+            businessEmail,
             phone_code,
             iso_code,
             memberId,
             address,
+            area,
+            city,
+            state,
+            country,
+            hoardingLicense,
             business,
             gstNumber,
             workerType,
@@ -121,16 +126,22 @@ const signUp = asyncHandler(async (req, res) => {
             userType,
             birthDate: birthDate ? new Date(birthDate) : undefined,
             alternateMobileNumber,
-            whatsappNumber,
+            businessEmail,
             phone_code: phone_code || "+91",
             iso_code: iso_code || "IN",
             memberId,
-            address,
+            address: address || {
+                country: country || undefined,
+                state: state || undefined,
+                city: city || undefined,
+                area: area || undefined,
+            },
+            hoardingLicense: hoardingLicense || undefined,
             business,
             gstNumber,
             workerType,
             experience,
-            skills,
+            skills: skills || [],
             plan: planId,
             accountStatus: userType === "SuperAdmin" ? "Verified" : "Pending",
             emailverified: userType === "SuperAdmin" ? true : false,
@@ -735,6 +746,9 @@ const updateUser = asyncHandler(async (req, res) => {
             if (updates.address.city) {
                 user.address.city = mongoose.Types.ObjectId(updates.address.city);
             }
+            if (updates.address.area) {
+                user.address.area = mongoose.Types.ObjectId(updates.address.area);
+            }
             if (updates.address.street !== undefined) {
                 user.address.street = updates.address.street;
             }
@@ -899,6 +913,7 @@ const updateUser = asyncHandler(async (req, res) => {
             .populate("address.city")
             .populate("address.state")
             .populate("address.country")
+            .populate("address.area")
             .populate("plan");
 
         // ========== SEND RESPONSE ==========

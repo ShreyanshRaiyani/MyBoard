@@ -7,6 +7,7 @@ const {
     updateHoarding,
     deleteHoarding,
     getHoardingsByOwner,
+    getNearbyPOIs
 } = require('../Controllers/hoardingController.js');
 const { attachImage}= require('../middleware/uploadimage.js');
 const { protect } = require("../middleware/auth.js");
@@ -17,5 +18,6 @@ router.get("/", protect, getAllHoardings);
 router.get("/:id", protect, getHoardingById);
 router.put("/:id", protect, attachImage, updateHoarding);
 router.delete("/:id", protect, deleteHoarding);
+router.get("/:id/nearby", protect, getNearbyPOIs);
 
 module.exports = router;
