@@ -31,6 +31,10 @@ const userSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "Country",
       },
+      area: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Area",
+      },
       state: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "State",
@@ -46,10 +50,11 @@ const userSchema = new mongoose.Schema(
     hoardingLicense: {
       type: String,
     },
+    hoardingLicenseDocument: { type: String },
     business: {
       type: String,
     },
-    businessPhoneNumber: {
+    businessEmail: {
       type: String,
     },
     accountStatus: { //only Admin can Change
@@ -113,6 +118,11 @@ function autoPopulate(next) {
   }
   this.populate({
     path: "address.city",
+    select: "_id name"
+  });
+
+  this.populate({
+    path: "address.area",
     select: "_id name"
   });
 

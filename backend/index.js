@@ -6,6 +6,7 @@ const connectDB = require('./Database/connect');
 const { initializeSocket } = require('./middleware/socketHandler');
 const { startPlanExpiryCron } = require('./middleware/planExpiryCron');
 const { startQueueExpiryCron } = require('./middleware/queueExpiryCron');
+const { startRequestExpiryCron } = require('./middleware/requestExpiryCron');
 
 // Start Server
 const PORT = process.env.PORT || 4000;
@@ -14,6 +15,7 @@ connectDB(process.env.MONGODB_URI)
     .then(() => {
         startPlanExpiryCron();
         startQueueExpiryCron();
+        startRequestExpiryCron();
     })
     .catch((error) => {
         console.error('DB connection failed:', error);
