@@ -42,6 +42,8 @@
   padding: 8px;
   border-radius: var(--radius);
   transition: var(--transition);
+  border-radius: 12px;
+  padding: 12px;
 }
 
 .sidebar ul li:hover {
@@ -503,7 +505,7 @@
 /* --- Improved Sidebar & Header styles --- */
 .sidebar {
   width: 215px;
-  background: linear-gradient(180deg,#4b2cc5 0%, #5b3be0 100%);
+  background: linear-gradient(180deg,#1f9fdb 0%, #1d86b8 100%);
   color: #fff;
   padding: 36px 20px;
   display: flex;
@@ -516,29 +518,30 @@
 .sidebar .brand {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 9px;
 }
 .sidebar .logo {
-  width: 55px;
-  height: 55px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.08);
+  width: 48px;
+  height: 45px;
+  border-radius: 8px;
+  padding: 6px;
+  background: rgba(255,255,255,1);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
   font-size: 20px;
   color: #fff;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  /* box-shadow: 0 8px 20px rgba(0,0,0,0.25); */
 }
-.sidebar .brand-name { font-weight: 700; font-size: 25px; color: #ffffff; margin: 0; text-shadow: 2px 6px 14px rgba(0,0,0,0.45); }
+.sidebar .brand-name { font-weight: 700; font-size: 25px; color: #ffffff; margin: 0; text-shadow: none; }
 .new-project {
   margin-top: 22px;
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,30%);
   color: #fff;
   border: none;
   padding: 14px 20px;
-  border-radius: 14px;
+  border-radius: 12px;
   display: inline-flex;
   gap: 12px;
   align-items: center;
@@ -559,9 +562,9 @@
   font-size: 18px;
   width: calc(100% - 8px);
 }
-.nav-item .label { font-size: 18px; }
-.nav-item:hover { background: rgba(255,255,255,0.04); }
-.nav-item.active { background: rgba(0,0,0,0.18); box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+.nav-item .label { font-size: 18px;}
+.nav-item:hover { background: rgba(255,255,255,0.04);}
+.nav-item.active { background: #ffffff; color: #1F9FDB; padding: 12px; border-radius: 12px;}
 .sidebar.collapsed .label, .sidebar.collapsed .brand-name, .sidebar.collapsed .new-project .label { display: none; }
 .sidebar.collapsed .logo { margin: 0 auto; }
 
@@ -583,6 +586,25 @@
   position: relative;
   cursor: pointer;
 }
+.icon-btn1 {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-radius: 8px;
+  position: relative;
+  cursor: pointer;
+  margin-right: 4px;
+}
+.icon-btn1 .badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #ff5252;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
 .icon-btn .badge {
   position: absolute;
   top: 6px;
@@ -597,13 +619,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f6f7fb;
+  background: #edeff6;
   padding: 8px 12px;
   border-radius: 999px;
   width: 360px;
+  margin-right: 15px;
 }
 .search input { border: none; background: transparent; outline: none; width: 100%; }
-.profile { gap: 10px; }
+.profile { gap: 4px; }
 .avatar { width: 38px; height: 38px; border-radius: 999px; object-fit: cover; }
 .profile-info { display:flex; flex-direction:column; font-size:12px; color:#444; margin-left:6px; }
 .profile-info .name { font-weight:700; color:#111; }
@@ -659,7 +682,7 @@
   border-radius: 6px;
 }
 
-.sidebar.collapsed .logo { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.sidebar.collapsed .logo { width:44px; height:44px; border-radius:18%; display:flex; align-items:center; justify-content:center; }
 
 .sidebar.collapsed .sidebar-footer { display:none; }
 
@@ -717,7 +740,7 @@
     2px 2px 8px rgba(0, 0, 0, 0.6),
     0 0 20px rgba(255, 255, 255, 0.25),
     1px 1px 3px rgba(0, 0, 0, 0.4);
-  letter-spacing: 1.8px;
+  /* letter-spacing: 1.8px; */
 }
 
 /* Form Card */

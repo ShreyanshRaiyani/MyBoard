@@ -6,20 +6,28 @@ export const normalizeProfilePic = (profilepic) => {
   return `${IMAGE_BASE_URL}${s.replace(/^\/+/, '')}`;
 };
 
+export const normalizeUserType = (raw) => {
+  if (!raw) return '';
+  const s = String(raw).trim().toLowerCase();
+  if (!s) return '';
+  if (s.includes('super') || s.includes('admin')) return 'SuperAdmin';
+  if (s.includes('hoarding')) return 'HoardingOwner';
+  if (s.includes('banner') || s.includes('client') || s.includes('user')) return 'BannerUser';
+  if (s.includes('worker')) return 'Worker';
+  return '';
+};
+
 export const storeUserToLocal = (user, token = '', auth = 'true') => {
   try {
     localStorage.setItem('email', user.email || '');
     localStorage.setItem('firstName', user.firstName || '');
     localStorage.setItem('lastName', user.lastName || '');
     localStorage.setItem('profilepic', normalizeProfilePic(user.profilepic || ''));
-    // keep legacy role fields if present
-    localStorage.setItem('role', user.role?.name || '');
-    localStorage.setItem('roleId', user.role?._id || '');
     localStorage.setItem('userId', user._id || user.id || '');
     localStorage.setItem('user', JSON.stringify(user));
     if (token) localStorage.setItem('token', token);
     localStorage.setItem('auth', auth);
-    localStorage.setItem('userType', user.userType || '');
+    localStorage.setItem('userType', normalizeUserType(user.userType || ''));
 
     if (user.role?.permissionGroups) {
       localStorage.setItem('permissionGroups', JSON.stringify(user.role.permissionGroups));
@@ -47,4 +55,27 @@ export const storeUserToLocal = (user, token = '', auth = 'true') => {
   } catch (err) {
     console.error('storeUserToLocal error:', err);
   }
+};
+
+export const clearLocalUser = () => {
+  const keys = ['token','userType','user','email','firstName','lastName','profilepic','auth','role','roleId','userId','permissionGroups','businessId','businessName','locationType','locationCoordinates','addedById','addedByFirstName','addedByLastName','addedByEmail','addedByRole','deviceId','devicetoken'];
+  try {
+    keys.forEach(k => localStorage.removeItem(k));
+    try { window.dispatchEvent(new Event('userChanged')); } catch (e) {}
+  } catch (e) {
+    console.warn('clearLocalUser failed', e);
+  }
+};
+
+import axiosInstance from './axiosInstance';
+
+export const logoutUser = async () => {
+  try {
+    // attempt server-side logout (non-blocking)
+    await axiosInstance.delete('/user/logout');
+  } catch (e) {
+    // ignore — still clear client state
+    console.warn('logout API failed', e?.message || e);
+  }
+  clearLocalUser();
 };
