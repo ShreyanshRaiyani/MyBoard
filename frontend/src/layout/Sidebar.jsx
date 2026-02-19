@@ -1,9 +1,14 @@
+import { NavLink } from 'react-router-dom';
 import { Home, Users, Layers, Settings, Plus } from 'lucide-react';
 import logo from '../assets/images/logo.svg';
 
 function Sidebar({ collapsed = false }) {
+  const baseClass = "sidebar" + (collapsed ? ' collapsed' : '');
+
+  const linkClass = ({ isActive }) => 'nav-item' + (isActive ? ' active' : '');
+
   return (
-    <aside className={"sidebar" + (collapsed ? ' collapsed' : '')}>
+    <aside className={baseClass}>
       <div className="sidebar-top">
         <div className="brand">
           <div className="logo"><img src={logo} alt="logo" /></div>
@@ -18,24 +23,32 @@ function Sidebar({ collapsed = false }) {
 
       <nav className="nav">
         <ul>
-          <li className="nav-item active">
-            <Home size={18} />
-            <span className="label">Dashboard</span>
+          <li>
+            <NavLink to="/dashboard" className={linkClass}>
+              <Home size={18} />
+              <span className="label">Dashboard</span>
+            </NavLink>
           </li>
 
-          <li className="nav-item">
-            <Layers size={18} />
-            <span className="label">Projects</span>
+          <li>
+            <NavLink to="/projects" className={linkClass}>
+              <Layers size={18} />
+              <span className="label">Projects</span>
+            </NavLink>
           </li>
 
-          <li className="nav-item">
-            <Users size={18} />
-            <span className="label">Clients</span>
+          <li>
+            <NavLink to="/clients" className={linkClass}>
+              <Users size={18} />
+              <span className="label">Clients</span>
+            </NavLink>
           </li>
 
-          <li className="nav-item">
-            <Settings size={18} />
-            <span className="label">Settings</span>
+          <li>
+            <NavLink to="/master" className={linkClass}>
+              <Settings size={18} />
+              <span className="label">Master</span>
+            </NavLink>
           </li>
         </ul>
       </nav>

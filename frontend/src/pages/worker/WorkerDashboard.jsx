@@ -1,10 +1,10 @@
-import MainLayout from "../layout/MainLayout";
+import MainLayout from "../../layout/MainLayout";
 
 function Dashboard() {
   return (
     <MainLayout>
       <div>
-        Content Area Working
+        Worker Content Area Working
       </div>
     </MainLayout>
   );

@@ -50,19 +50,10 @@ const OTP = () => {
           localStorage.setItem('devicetoken', device.response.devicetoken || '');
         }
         toastSuccess(Message || 'OTP verified');
-        // navigate based on userType
-        if (user.userType === 'Admin' || user.userType === 'SuperAdmin') {
-          localStorage.setItem('checkRole', user.userType || 'Admin');
-          try { window.dispatchEvent(new Event('userChanged')); } catch (e) {}
-          navigate('/admin');
-        } else if (user.userType === 'Client') {
-          localStorage.setItem('checkRole', 'Client');
-          try { window.dispatchEvent(new Event('userChanged')); } catch (e) {}
-          navigate('/user');
-        } else {
-          try { window.dispatchEvent(new Event('userChanged')); } catch (e) {}
-          navigate('/dashboard');
-        }
+        // store normalized userType already handled in storeUserToLocal
+        try { window.dispatchEvent(new Event('userChanged')); } catch (e) {}
+        // redirect to unified dashboard route — App will route to the correct dashboard by role
+        navigate('/dashboard');
       } else {
         toastError(Message || 'Invalid OTP');
       }
