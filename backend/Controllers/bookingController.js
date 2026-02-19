@@ -211,14 +211,14 @@ const createBooking = asyncHandler(async (req, res) => {
         return res.status(200).json({
             status: 1,
             message: "Hoarding is currently booked. You have been added to the queue.",
-            data: {
+            
                 booking: populatedBooking,
                 queuePosition: userQueueEntry.position,
                 estimatedStartDate: userQueueEntry.estimatedStartDate,
                 estimatedEndDate: userQueueEntry.estimatedEndDate,
                 inQueue: true,
                 totalInQueue: queue.queue.length
-            }
+            
         });
     }
 
@@ -240,7 +240,7 @@ const createBooking = asyncHandler(async (req, res) => {
     res.status(201).json({
         status: 1,
         message: "Booking request created successfully",
-        data: populatedBooking
+        booking: populatedBooking
     });
 });
 
@@ -302,7 +302,7 @@ const getAllBookings = asyncHandler(async (req, res) => {
         total,
         totalPages: Math.ceil(total / limit),
         currentPage: Number(page),
-        data: bookings,
+        booking: bookings,
         queueInfo: queueInfo.length > 0 ? queueInfo : undefined
     });
 });
@@ -359,7 +359,7 @@ const getBookingById = asyncHandler(async (req, res) => {
 
     res.status(200).json({
         status: 1,
-        data: {
+        booking: {
             ...booking.toObject(),
             queueInfo
         }
@@ -571,7 +571,7 @@ const updateBooking = asyncHandler(async (req, res) => {
         return res.status(200).json({
             status: 1,
             message: `Booking ${newStatus.toLowerCase()} successfully`,
-            data: updatedBooking
+            booking: updatedBooking
         });
     }
 
@@ -633,7 +633,7 @@ const updateBooking = asyncHandler(async (req, res) => {
         return res.status(200).json({
             status: 1,
             message: "Payment status updated successfully",
-            data: updatedBooking
+            booking: updatedBooking
         });
     }
 
@@ -1051,7 +1051,7 @@ const respondToWorkRequest = asyncHandler(async (req, res) => {
     res.status(200).json({
         status: 1,
         message: `Work assignment ${status.toLowerCase()} successfully`,
-        data: workRequest
+        workRequest: workRequest
     });
 });
 
@@ -1075,7 +1075,7 @@ const getQueueStatus = asyncHandler(async (req, res) => {
 
     res.status(200).json({
         status: 1,
-        data: queue
+        queue: queue
     });
 });
 

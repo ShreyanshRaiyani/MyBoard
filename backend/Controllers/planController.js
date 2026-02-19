@@ -87,7 +87,7 @@ const addPlan = asyncHandler(async (req, res) => {
         res.status(201).json({
             Status: 1,
             Message: "Plan added successfully",
-            data: plan,
+            plan: plan,
         });
 
     } catch (error) {
@@ -138,12 +138,12 @@ const getAllPlans = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Plans fetched successfully",
-            data: {
+            
                 totalPlans: totalCount,
                 totalPages: Math.ceil(totalCount / limit),
                 currentPage: page,
-                plans,
-            },
+                plan: plans,
+            
         });
 
     } catch (error) {
@@ -180,7 +180,7 @@ const getPlan = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Plan fetched successfully",
-            data: plan,
+            plan: plan,
         });
 
     } catch (error) {
@@ -279,7 +279,7 @@ const updatePlan = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Plan updated successfully",
-            data: updatedPlan,
+            plan: updatedPlan,
         });
 
     } catch (error) {
@@ -386,7 +386,7 @@ const runPlanCron = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Plan cron job executed successfully",
-            data: cronResult,
+            plan: cronResult,
         });
 
     } catch (error) {
