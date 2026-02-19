@@ -11,6 +11,6 @@
 
 .otp-input:focus {
   outline: none;
-  border-color: #ff6b35;
-  box-shadow: 0 0 0 4px rgba(255,107,53,0.08);
+  border-color: #187fb0;
+  box-shadow: 0 0 0 4px rgba(31, 159, 219,0.08);
 }
