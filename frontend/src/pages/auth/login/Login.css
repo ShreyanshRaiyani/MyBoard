@@ -328,9 +328,9 @@
 
 .input-wrapper input:focus {
   outline: none;
-  border-color: #ff6b35;
+  border-color: #187fb0;
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.1);
+  box-shadow: 0 0 0 4px rgba(31, 159, 219, 0.1);
 }
 
 .input-wrapper input::placeholder {
@@ -353,14 +353,14 @@
 }
 
 .toggle-password:hover {
-  color: #ff6b35;
+  color: #187fb0;
 }
 
 /* Submit Button */
 .submit-button {
   width: 100%;
   padding: 16px;
-  background: linear-gradient(135deg, #ff6b35 0%, #f95d3c 100%);
+  background: linear-gradient(135deg, #187fb0 0%, #1f9fdb 100%);
   color: #ffffff;
   border: none;
   border-radius: 12px;
@@ -368,7 +368,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(255, 107, 53, 0.4);
+  box-shadow: 0 4px 16px rgba(31, 159, 219, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -378,7 +378,7 @@
 
 .submit-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(255, 107, 53, 0.5);
+  box-shadow: 0 6px 24px rgba(31, 159, 219, 0.5);
 }
 
 .submit-button:active {
@@ -396,14 +396,14 @@
 }
 
 .form-footer a {
-  color: #ff6b35;
+  color: #187fb0;
   text-decoration: none;
   font-weight: 600;
   transition: color 0.2s ease;
 }
 
 .form-footer a:hover {
-  color: #f95d3c;
+  color: #1f9fdb;
   text-decoration: underline;
 }
 

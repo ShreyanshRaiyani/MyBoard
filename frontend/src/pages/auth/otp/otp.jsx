@@ -61,7 +61,7 @@ const OTP = () => {
                 </div>
 
                 <div className="form-footer" style={{marginTop: 14}}>
-                  Didn’t receive the code? <button type="button" onClick={() => console.log('Resend OTP')} style={{border: 'none', background: 'transparent', color: '#ff6b35', fontWeight: 600, cursor: 'pointer'}}>Resend</button>
+                  Didn’t receive the code? <button type="button" onClick={() => console.log('Resend OTP')} style={{border: 'none', background: 'transparent', color: '#187fb0', fontWeight: 600, cursor: 'pointer'}}>Resend</button>
                 </div>
               </form>
             </div>
