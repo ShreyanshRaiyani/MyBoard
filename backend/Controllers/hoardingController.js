@@ -5,7 +5,7 @@ const User = require("../models/User");
 const { sendNotification, notificationTemplates } = require("./notificationController");
 const { uploadImageReturnUrl, deleteFromCloudinary } = require('./imageController');
 // const { findNearbyPlaces } = require('../middleware/mapplsService');
-const { findNearbyOverpass}  = require('../middleware/overpassService');
+const { findNearbyOverpass, findNearbyCounts }  = require('../middleware/overpassService');
 
 // Helper function to handle multiple image uploads with indexed tracking
 const uploadHoardingImages = async (files, req) => {
@@ -352,15 +352,31 @@ const getNearbyPOIs = asyncHandler(async (req, res) => {
 
         // Final fallback: Overpass (OpenStreetMap)
         try {
-            const overpass = await findNearbyOverpass(lat, lon, radius, categories);
+            // Fast parallel counts
+            const counts = await findNearbyCounts(lat, lon, radius, categories);
+
+            // Only fetch detailed items for landmarks (if requested)
+            let landmarkItems = [];
+            if (categories.map(c => String(c).toLowerCase()).includes('landmark')) {
+                // fetch detailed landmarks (limited)
+                try {
+                    const overpassLand = await findNearbyOverpass(lat, lon, radius, ['landmark']);
+                    landmarkItems = (overpassLand.results && overpassLand.results.landmark) ? overpassLand.results.landmark.slice(0,20) : overpassLand.suggestions || [];
+                } catch (landErr) {
+                    console.warn('Landmark detail fetch failed:', landErr.message || landErr);
+                }
+            }
+
             return res.status(200).json({
-                status:1,
+                status: 1,
                 hoardingId: id,
                 coordinates: { lat, lon },
                 radius,
-                counts: overpass.counts,
-                suggestions: overpass.suggestions.slice(0,10),
-                raw: overpass.results
+                counts,
+                landmark: {
+                    count: counts.landmark || landmarkItems.length || 0,
+                    items: landmarkItems
+                }
             });
         } catch (ovErr) {
             console.error('Overpass fallback failed:', ovErr);
