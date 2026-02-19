@@ -174,11 +174,10 @@ const signUp = asyncHandler(async (req, res) => {
                 : userType === "HoardingOwner" || userType === "BannerUser"
                     ? `${userType} registered successfully with default plan. OTP sent for verification.`
                     : "User registered successfully. OTP sent for verification.",
-            data: {
-                user: userResponse,
-                token: token || undefined,
-                defaultPlanAssigned: (userType === "HoardingOwner" || userType === "BannerUser") && planId ? true : false
-            },
+
+            user: userResponse,
+            token: token || undefined,
+            defaultPlanAssigned: (userType === "HoardingOwner" || userType === "BannerUser") && planId ? true : false,
         });
     } catch (error) {
         console.error("SignUp error:", error);
@@ -270,12 +269,12 @@ const login = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Login successful",
-            data: {
-                user: populateuser,
-                token: generateToken(user._id, user.userType),
-                userType: user.userType,
-                accountStatus: user.accountStatus,
-            },
+
+            user: populateuser,
+            token: generateToken(user._id, user.userType),
+            userType: user.userType,
+            accountStatus: user.accountStatus,
+
         });
     } catch (error) {
         console.error("Login error:", error);
@@ -459,12 +458,12 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
             res.status(200).json({
                 Status: 1,
-                data: {
-                    totalUsers: users.totalDocs,
-                    totalPages: users.totalPages,
-                    currentPage: users.page,
-                    users: users.docs,
-                },
+
+                totalUsers: users.totalDocs,
+                totalPages: users.totalPages,
+                currentPage: users.page,
+                users: users.docs,
+
             });
         } else {
             const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -477,12 +476,12 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
             res.status(200).json({
                 Status: 1,
-                data: {
-                    totalUsers,
-                    totalPages: Math.ceil(totalUsers / parseInt(limit)),
-                    currentPage: parseInt(page),
-                    users,
-                },
+
+                totalUsers,
+                totalPages: Math.ceil(totalUsers / parseInt(limit)),
+                currentPage: parseInt(page),
+                users: users,
+
             });
         }
     } catch (error) {
@@ -513,7 +512,7 @@ const getUserById = asyncHandler(async (req, res) => {
         // ========== SEND RESPONSE ==========
         res.status(200).json({
             Status: 1,
-            data: user,
+            user: user,
         });
     } catch (error) {
         console.error("Get user error:", error);
@@ -920,7 +919,7 @@ const updateUser = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "User updated successfully",
-            data: populatedUser,
+            user: populatedUser,
         });
     } catch (error) {
         console.error("Update user error:", error);
@@ -976,7 +975,7 @@ const deleteUser = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "User deactivated successfully",
-            data: user,
+            user: user,
         });
     } catch (error) {
         console.error("Delete user error:", error);

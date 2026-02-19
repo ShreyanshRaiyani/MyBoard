@@ -68,7 +68,7 @@ const getAllQueues = async (req, res) => {
       total,
       totalPages: Math.ceil(total / limit),
       currentPage: Number(page),
-      data: queues
+      queue: queues
     });
   } catch (error) {
     res.status(500).json({
@@ -112,7 +112,7 @@ const getQueueById = async (req, res) => {
 
     res.status(200).json({
       status:1,
-      data: queue
+      queue: queue
     });
   } catch (error) {
     res.status(500).json({
@@ -162,7 +162,7 @@ const getMyQueuePositions = async (req, res) => {
     res.status(200).json({
       status:1,
       count: myPositions.length,
-      data: myPositions
+      myPosition: myPositions
     });
   } catch (error) {
     res.status(500).json({
@@ -318,10 +318,10 @@ const forceProcessNext = async (req, res) => {
     res.status(200).json({
       status:1,
       message: "Next booking in queue has been processed",
-      data: {
+      
         newCurrentBooking: nextBookingRequest,
         queueLength: queue.queue.length
-      }
+    
     });
   } catch (error) {
     res.status(500).json({
@@ -402,7 +402,7 @@ const updateQueueEntry = async (req, res) => {
     res.status(200).json({
       status:1,
       message: "Queue entry updated successfully",
-      data: queue.queue[entryIndex]
+      queue: queue.queue[entryIndex]
     });
   } catch (error) {
     res.status(500).json({
@@ -444,7 +444,7 @@ const toggleQueueStatus = async (req, res) => {
     res.status(200).json({
       status:1,
       message: `Queue ${isActive ? 'activated' : 'deactivated'} successfully`,
-      data: queue
+      queue: queue
     });
   } catch (error) {
     res.status(500).json({
@@ -460,7 +460,7 @@ const runQueueCron = async (req, res) => {
     res.status(200).json({
       status: 1,
       message: "Queue cron executed successfully",
-      data: result,
+      result: result,
     });
   } catch (error) {
     res.status(500).json({
