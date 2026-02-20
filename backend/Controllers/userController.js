@@ -618,7 +618,7 @@ const updateUser = asyncHandler(async (req, res) => {
                 file: uploadedFiles.profilepic,
                 prefix: "profile",
             });
-            if (user.profilepic && user.profilepic !== "generaluserpic.png") {
+            if (user.profilepic ) {
                 filesToDelete.push(user.profilepic);
             }
         }

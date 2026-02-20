@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema(
     whatsappNumber: { type: String },
     phone_code: { type: String },
     iso_code: { type: String },
-    profilepic: { type: String, default: "generaluserpic.png" },
+    profilepic: { type: String },
     emailverified: { type: Boolean, default: false },
     otp: { type: String, select: false },
     resettoken: { type: String },
