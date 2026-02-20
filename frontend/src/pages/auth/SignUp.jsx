@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/images/logo.svg';
+import axiosInstance from '../../utils/axiosInstance';
+import { toastSuccess, toastError } from '../../utils/alertHelper';
+import { storeUserToLocal } from '../../utils/authHelper';
 
 const SignUp = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
     password: '',
@@ -24,10 +28,45 @@ const SignUp = () => {
     otherSkill: ''
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Sign up attempt:', formData);
-    navigate('/login');
+    setShowPassword(false);
+    try {
+      const payload = { ...formData };
+      // map local userType values to more descriptive backend values if needed
+      if (payload.userType === 'hoarding') payload.userType = 'HoardingOwner';
+      if (payload.userType === 'banner') payload.userType = 'BannerUser';
+      if (payload.userType === 'worker') payload.userType = 'Worker';
+
+      const res = await axiosInstance.post('/user/signup', payload);
+      const data = res?.data || {};
+      const user = data.user || data.data?.user || data || null;
+      const token = data?.token || data.data?.token || data?.UserToken || '';
+
+      const authComplete = Boolean(
+        data?.isAuthenticated || data?.authComplete || data?.authenticated || data?.registrationComplete
+      );
+
+      if (authComplete && user && token) {
+        try { storeUserToLocal(user, token, 'true'); } catch (err) { console.warn('storeUserToLocal failed', err); }
+        toastSuccess(data?.Message || 'Registered and signed in');
+        navigate('/dashboard');
+        return;
+      }
+
+      if (user) {
+        try { storeUserToLocal(user, '', 'false'); } catch (err) { console.warn('storeUserToLocal failed', err); }
+        localStorage.setItem('email', formData.email || user.email || '');
+        toastSuccess(data?.Message || 'Registration successful — verify your email');
+        navigate('/otp');
+        return;
+      }
+
+      toastError(data?.Message || 'Registration failed');
+    } catch (err) {
+      console.error('Sign up failed', err);
+      toastError(err?.response?.data?.Message || err?.message || 'Sign up failed');
+    }
   };
 
   const handleChange = (e) => {
@@ -73,19 +112,38 @@ const SignUp = () => {
 
               <form onSubmit={handleSubmit} className="billboard-form">
                 <div className="form-group">
-                  <label htmlFor="name">Full Name</label>
-                  <div className="input-wrapper">
-                    <User className="input-icon" size={20} />
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      placeholder="Enter your full name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      autoComplete="name"
-                      required
-                    />
+                  <div style={{display: 'flex', gap: 12}}>
+                    <div style={{flex: 1}}>
+                      <label htmlFor="firstName">First Name</label>
+                      <div className="input-wrapper">
+                        <User className="input-icon" size={20} />
+                        <input
+                          type="text"
+                          id="firstName"
+                          name="firstName"
+                          placeholder="First name"
+                          value={formData.firstName}
+                          onChange={handleChange}
+                          autoComplete="given-name"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{flex: 1}}>
+                      <label htmlFor="lastName">Last Name</label>
+                      <div className="input-wrapper">
+                        <input
+                          type="text"
+                          id="lastName"
+                          name="lastName"
+                          placeholder="Last name"
+                          value={formData.lastName}
+                          onChange={handleChange}
+                          autoComplete="family-name"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -113,9 +171,9 @@ const SignUp = () => {
                     <input
                       type="tel"
                       id="phone"
-                      name="phone"
+                      name="mobileNumber"
                       placeholder="Enter your phone number"
-                      value={formData.phone}
+                      value={formData.mobileNumber}
                       onChange={handleChange}
                       autoComplete="tel"
                     />

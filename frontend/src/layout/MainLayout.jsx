@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { Outlet } from 'react-router-dom';
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 
-function MainLayout({ children }) {
+function MainLayout({ navPages }) {
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem('sidebarCollapsed') === 'true';
@@ -25,12 +26,12 @@ function MainLayout({ children }) {
 
   return (
     <div className="admin-wrapper">
-      <Sidebar collapsed={collapsed} />
+      <Sidebar collapsed={collapsed} navPages={navPages} />
 
       <div className="main-section">
         <Header onMenuToggle={handleMenuToggle} />
         <div className="content">
-          {children}
+          <Outlet />
         </div>
         <Footer />
       </div>
