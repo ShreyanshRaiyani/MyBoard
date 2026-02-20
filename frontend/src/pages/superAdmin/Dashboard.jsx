@@ -1,12 +1,11 @@
-import MainLayout from "../../layout/MainLayout";
+import React from 'react';
 
 function Dashboard() {
   return (
-    <MainLayout>
+  
       <div>
         Content Area Working
       </div>
-    </MainLayout>
   );
 }
 

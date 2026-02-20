@@ -1,50 +1,59 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Users, Layers, Settings, Plus, FileText, List, DollarSign, Star, MessageSquare } from 'lucide-react';
 import logo from '../assets/images/logo.svg';
+import { Plus, List, Settings, FileText,Home, BarChart2, Star, MessageSquare, ShoppingCart, Award } from 'lucide-react';
+// navigation data should be provided by the parent via `navPages` prop
 
-function Sidebar({ collapsed = false, userType: propUserType = '' }) {
+function Sidebar({ collapsed = false, userType: propUserType = '', navPages }) {
   const baseClass = 'sidebar' + (collapsed ? ' collapsed' : '');
-
   const linkClass = ({ isActive }) => 'nav-item' + (isActive ? ' active' : '');
 
   // resolve userType: prop overrides localStorage
   const stored = typeof window !== 'undefined' ? (localStorage.getItem('userType') || '') : '';
   const userType = (propUserType || stored || '').toString();
 
-  // define pages per user type
-  const pages = [];
+  // use navPages passed from parent; otherwise build a role-specific list here
+  const pages = navPages ?? (function buildRolePages(type) {
+    const t = (type || '').toLowerCase();
 
-  // Dashboard always available
-  pages.push({ to: '/dashboard', label: 'Dashboard', icon: <Home size={18} /> });
+    if (/hoardingowner/.test(t)) {
+      return [
+        { to: '/hoarding-owner/profile', label: 'Hoarding Owner Profile', icon: <Plus size={18} /> },
+        { to: '/hoarding', label: 'Hoarding List', icon: <List size={18} /> },
+        { to: '/banner-requests', label: 'Banner Requests', icon: <FileText size={18} /> },
+        { to: '/earning', label: 'Earning Dashboard', icon: <BarChart2 size={18} /> },
+        { to: '/ratings', label: 'Rating & Reviews', icon: <Star size={18} /> },
+        { to: '/feedback', label: 'Feedback', icon: <MessageSquare size={18} /> },
+      ];
+    }
 
-  if (/hoardingowner/i.test(userType)) {
-    pages.push({ to: '/hoarding/profile', label: 'Hoarding Owner Profile', icon: <Users size={18} /> });
-    pages.push({ to: '/hoarding/HoardingIndex', label: 'Hoarding', icon: <FileText size={18} /> });
-    pages.push({ to: '/hoarding/list', label: 'Hoarding List', icon: <List size={18} /> });
-    pages.push({ to: '/banner-requests', label: 'Banner Requests', icon: <MessageSquare size={18} /> });
-    pages.push({ to: '/hoarding/earnings', label: 'Earning Dashboard', icon: <DollarSign size={18} /> });
-    pages.push({ to: '/hoarding/reviews', label: 'Rating & Reviews', icon: <Star size={18} /> });
-    pages.push({ to: '/hoarding/feedback', label: 'Feedback', icon: <MessageSquare size={18} /> });
-  } else if (/banneruser/i.test(userType)) {
-    pages.push({ to: '/banner/profile', label: 'Banner User Profile', icon: <Users size={18} /> });
-    pages.push({ to: '/banner/list', label: 'Banner List', icon: <List size={18} /> });
-    pages.push({ to: '/booking', label: 'Hoarding Booking', icon: <FileText size={18} /> });
-    pages.push({ to: '/ads/status', label: 'Advertisement Status', icon: <MessageSquare size={18} /> });
-    pages.push({ to: '/payments', label: 'Payment History', icon: <DollarSign size={18} /> });
-    pages.push({ to: '/reviews', label: 'Rating & Reviews', icon: <Star size={18} /> });
-    pages.push({ to: '/feedback', label: 'Feedback', icon: <MessageSquare size={18} /> });
-  } else if (/worker/i.test(userType)) {
-    pages.push({ to: '/worker/profile', label: 'Worker Profile', icon: <Users size={18} /> });
-    pages.push({ to: '/worker/banners', label: 'Banner Work', icon: <List size={18} /> });
-    pages.push({ to: '/worker/earnings', label: 'Total Earnings', icon: <DollarSign size={18} /> });
-    pages.push({ to: '/worker/reviews', label: 'Rating & Reviews', icon: <Star size={18} /> });
-    pages.push({ to: '/worker/feedback', label: 'Feedback', icon: <MessageSquare size={18} /> });
-  } else {
-    // fallback: show some general links
-    pages.push({ to: '/projects', label: 'Projects', icon: <Layers size={18} /> });
-    pages.push({ to: '/clients', label: 'Clients', icon: <Users size={18} /> });
-    pages.push({ to: '/master', label: 'Master', icon: <Settings size={18} /> });
-  }
+    if (/banneruser/.test(t)) {
+      return [
+        { to: '/banner-user/profile', label: 'Banner User Profile', icon: <User size={18} /> },
+        { to: '/banners', label: 'Banner List', icon: <List size={18} /> },
+        { to: '/hoarding-booking', label: 'Hoarding Booking', icon: <ShoppingCart size={18} /> },
+        { to: '/advert-status', label: 'Advertisment Status Tracking', icon: <Award size={18} /> },
+        { to: '/payment-history', label: 'Payment History', icon: <FileText size={18} /> },
+        { to: '/ratings', label: 'Rating & Reviews', icon: <Star size={18} /> },
+        { to: '/feedback', label: 'Feedback', icon: <MessageSquare size={18} /> },
+      ];
+    }
+
+    if (/worker/.test(t)) {
+      return [
+        { to: '/worker/profile', label: 'Worker Profile', icon: <User size={18} /> },
+        { to: '/banner-work', label: 'Banner Work', icon: <FileText size={18} /> },
+        { to: '/earnings', label: 'Total Earnings', icon: <BarChart2 size={18} /> },
+        { to: '/ratings', label: 'Rating & Reviews', icon: <Star size={18} /> },
+        { to: '/feedback', label: 'Feedback', icon: <MessageSquare size={18} /> },
+      ];
+    }
+
+    // default (SuperAdmin / fallback)
+    return [
+      { to: '/dashboard', label: 'Dashboard' ,icon: <Home size={18} />},
+      { to: '/master', label: 'Master' ,icon: <Settings size={18} />},
+    ];
+  })(userType);
 
   return (
     <aside className={baseClass}>
@@ -53,18 +62,18 @@ function Sidebar({ collapsed = false, userType: propUserType = '' }) {
           <div className="logo"><img src={logo} alt="logo" /></div>
           <div className="brand-name">MyBoard</div>
         </div>
-
-        {/* <button className="new-project">
-          <Plus size={14} />
-          <span className="label">New Project</span>
-        </button> */}
       </div>
 
       <nav className="nav">
         <ul>
           {pages.map((p) => (
             <li key={p.to}>
-              <NavLink to={p.to} className={linkClass} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+              <NavLink
+                to={p.to}
+                className={linkClass}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
                 {p.icon}
                 <span className="label">{p.label}</span>
               </NavLink>
@@ -72,7 +81,6 @@ function Sidebar({ collapsed = false, userType: propUserType = '' }) {
           ))}
         </ul>
       </nav>
-
     </aside>
   );
 }
