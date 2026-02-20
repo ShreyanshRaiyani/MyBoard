@@ -6,11 +6,11 @@ import Dashboard from "./pages/SuperAdmin/Dashboard";
 import HoardingDashboard from "./pages/HoardingOwner/HoardingDashboard";
 import BannerDashboard from "./pages/BannerUser/BannerDashboard";
 import WorkerDashboard from "./pages/Worker/WorkerDashboard";
-import Master from "./pages/master/Master";
-import Country from "./pages/country/Country";
-import State from "./pages/master/State";
-import City from "./pages/master/City";
-import Area from "./pages/master/Area";
+import Master from "./pages/master/Master.jsx";
+import Country from "./pages/master/Country.jsx";
+import State from "./pages/master/State.jsx";
+import City from "./pages/master/City.jsx";
+import Area from "./pages/master/Area.jsx";
 
 function App() {
   const DashboardRouter = () => {
@@ -52,6 +52,7 @@ function App() {
 
         {/* Master pages */}
         <Route path="/master" element={<Master />} />
+        <Route path="/master/:type" element={<Master />} />
         <Route path="/master/country" element={<Country />} />
         <Route path="/master/state" element={<State />} />
         <Route path="/master/city" element={<City />} />

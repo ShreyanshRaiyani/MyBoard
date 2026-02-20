@@ -1,12 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 
 function MainLayout({ children }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebarCollapsed') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
 
-  const handleMenuToggle = () => setCollapsed(c => !c);
+  const handleMenuToggle = () => setCollapsed(c => {
+    const next = !c;
+    try { localStorage.setItem('sidebarCollapsed', next ? 'true' : 'false'); } catch (e) { }
+    return next;
+  });
+
+  // keep localStorage in sync if external code changes it
+  useEffect(() => {
+    try { localStorage.setItem('sidebarCollapsed', collapsed ? 'true' : 'false'); } catch (e) { }
+  }, [collapsed]);
 
   return (
     <div className="admin-wrapper">
