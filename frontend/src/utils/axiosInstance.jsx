@@ -25,6 +25,21 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
+    // If unauthorized, clear client session and force redirect to login
+    try {
+      if (error?.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userType');
+        localStorage.removeItem('user');
+        try { window.dispatchEvent(new Event('userChanged')); } catch (e) {}
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+      }
+    } catch (e) {
+      console.warn('axios 401 handler failed', e);
+    }
+
     if (import.meta.env.DEV) {
       try {
         const { config, response } = error;
