@@ -1,5 +1,5 @@
 import { Search, Bell, MessageCircle, Settings, Menu, User, LogOut } from 'lucide-react';
-import defaultProfile from '../assets/images/logo.svg';
+import defaultProfile from '../assets/images/profile.jpg';
 import { useNavigate } from 'react-router-dom';
 import { logoutUser, clearLocalUser } from '../utils/authHelper';
 
@@ -35,15 +35,15 @@ const Header = ({ onMenuToggle, title = "Dashboard" }) => {
           <Search size={16} />
           <input type="text" placeholder="Search here..." />
         </div>
-        <button className="icon-btn">
+        <button className="icon-btn1">
           <Bell size={18} />
           <span className="badge">3</span>
         </button>
 
-        <button className="icon-btn1">
+        {/* <button className="icon-btn1">
           <MessageCircle size={18} />
           <span className="badge">2</span>
-        </button>
+        </button> */}
 
         {/* <button className="icon-btn">
           <Settings size={18} />
