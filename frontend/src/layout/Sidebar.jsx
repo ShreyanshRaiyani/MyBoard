@@ -19,7 +19,7 @@ function Sidebar({ collapsed = false, userType: propUserType = '' }) {
 
   if (/hoardingowner/i.test(userType)) {
     pages.push({ to: '/hoarding/profile', label: 'Hoarding Owner Profile', icon: <Users size={18} /> });
-    pages.push({ to: '/hoarding/manage', label: 'Hoarding CURD Pages', icon: <FileText size={18} /> });
+    pages.push({ to: '/hoarding/HoardingIndex', label: 'Hoarding', icon: <FileText size={18} /> });
     pages.push({ to: '/hoarding/list', label: 'Hoarding List', icon: <List size={18} /> });
     pages.push({ to: '/banner-requests', label: 'Banner Requests', icon: <MessageSquare size={18} /> });
     pages.push({ to: '/hoarding/earnings', label: 'Earning Dashboard', icon: <DollarSign size={18} /> });
