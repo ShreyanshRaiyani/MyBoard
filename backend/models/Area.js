@@ -41,4 +41,14 @@ areaSchema.pre(/^find/, async function (next) {
   next();
 });
 
+function autoPopulate(next) {
+  this.populate("country", "name");
+  this.populate("state", "name");
+  this.populate("city", "name");
+  next();
+}
+areaSchema.pre("find", autoPopulate);
+areaSchema.pre("findOne", autoPopulate);
+
+
 module.exports = mongoose.models.Area || mongoose.model("Area", areaSchema);
