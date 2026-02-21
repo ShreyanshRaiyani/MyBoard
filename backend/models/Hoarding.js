@@ -122,7 +122,7 @@ function autoPopulate(next) {
   this.populate("location.city", "name"); 
   this.populate("location.state", "name"); 
   this.populate("location.country", "name"); 
-  this.populate("dimensions.unit", "name"); 
+  this.populate("dimensions.unit", "unitName"); 
   next();
 }
 

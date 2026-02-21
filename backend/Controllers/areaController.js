@@ -37,7 +37,7 @@ const addArea = asyncHandler(async (req, res) => {
 
     // Create & Populate
     const created = await Area.create({ name, country, state, city });
-    const populated = await Area.findById(created._id).populate("country");
+    const populated = await Area.findById(created._id).populate("country" , "name").populate("state", "name").populate("city", "name");
 
     if (populated) {
         return res.status(200).json({
@@ -93,7 +93,7 @@ const getAreas = asyncHandler(async (req, res) => {
 
 // Get Single Area by ID
 const getAreaById = asyncHandler(async (req, res) => {
-    const area = await Area.findById(req.params.id).populate("country");
+    const area = await Area.findById(req.params.id);
 
     if (area) {
         res.status(200).json({
