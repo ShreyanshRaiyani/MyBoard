@@ -24,6 +24,110 @@ const cacheSet = (key, data) => {
     cache.set(key, { ts: Date.now(), data });
 };
 
+// Optional Mappls (MapmyIndia / Mappls) provider configuration
+// You can provide either:
+// - MAPPLS_BASE_URL and MAPPLS_API_KEY environment variables, or
+// - MAPPLS_SDK_URL containing an `access_token` query param (the SDK URL you pasted)
+const MAPPLS_SDK_URL = process.env.MAPPLS_SDK_URL || null;
+let MAPPLS_BASE_URL = process.env.MAPPLS_BASE_URL || 'https://apis.mappls.com/places/v1';
+let MAPPLS_API_KEY = process.env.MAPPLS_API_KEY || process.env.MAPPLS_KEY || null;
+
+// If user supplied the SDK URL (e.g. https://sdk.mappls.com/map/sdk/web?...&access_token=KEY), extract the token
+if (!MAPPLS_API_KEY && MAPPLS_SDK_URL) {
+    try {
+        const urlObj = new URL(MAPPLS_SDK_URL);
+        const token = urlObj.searchParams.get('access_token') || urlObj.searchParams.get('access_token'.toLowerCase());
+        if (token) MAPPLS_API_KEY = token;
+    } catch (e) {
+        // ignore parse errors
+    }
+}
+
+// Try Mappls Places 'around' search for counts (very lightweight) if configured.
+async function fetchCountForCategoryMappls(lat, lon, radius, tagExpression) {
+    if (!MAPPLS_BASE_URL || !MAPPLS_API_KEY) return null;
+
+    try {
+        // Derive a free-text query from tagExpression when possible
+        // e.g. 'amenity=hospital' -> q='hospital'
+        let q = tagExpression;
+        if (typeof tagExpression === 'string' && tagExpression.includes('=')) {
+            q = tagExpression.split('=')[1];
+        }
+
+        const url = `${MAPPLS_BASE_URL.replace(/\/$/, '')}/search/around`;
+        const params = {
+            key: MAPPLS_API_KEY,
+            lat,
+            lon,
+            radius,
+            q
+        };
+
+        const resp = await axios.get(url, { params, timeout: 5000 });
+        // Mappls responses vary; try common shapes
+        const data = resp && resp.data ? resp.data : null;
+        if (!data) return 0;
+
+        // If API returns count or total
+        if (typeof data.count === 'number') return data.count;
+        if (typeof data.total === 'number') return data.total;
+
+        // If results array exists, return its length
+        if (Array.isArray(data.results)) return data.results.length;
+        if (Array.isArray(data.place)) return data.place.length;
+
+        return 0;
+    } catch (err) {
+        console.warn('Mappls count request failed, falling back to Overpass:', err.message || err);
+        return null;
+    }
+}
+
+// Try Mappls for detailed category items when configured.
+async function fetchCategoryMappls(lat, lon, radius, tagExpressions) {
+    if (!MAPPLS_BASE_URL || !MAPPLS_API_KEY) return null;
+
+    try {
+        // pick the first tag expression and derive a query
+        let first = (Array.isArray(tagExpressions) && tagExpressions.length > 0) ? tagExpressions[0] : tagExpressions;
+        let q = first;
+        if (typeof first === 'string' && first.includes('=')) q = first.split('=')[1];
+
+        const url = `${MAPPLS_BASE_URL.replace(/\/$/, '')}/search/around`;
+        const params = {
+            key: MAPPLS_API_KEY,
+            lat,
+            lon,
+            radius,
+            q,
+            limit: 50
+        };
+
+        const resp = await axios.get(url, { params, timeout: 7000 });
+        const data = resp && resp.data ? resp.data : null;
+        if (!data) return [];
+
+        const items = (Array.isArray(data.results) ? data.results : (Array.isArray(data.place) ? data.place : []) ).map((p) => {
+            const latv = p.latitude || p.lat || (p.geometry && p.geometry.coordinates && p.geometry.coordinates[1]) || null;
+            const lngv = p.longitude || p.lon || (p.geometry && p.geometry.coordinates && p.geometry.coordinates[0]) || null;
+            return {
+                id: p.id || `${p.name || 'poi'}_${latv}_${lngv}`,
+                name: p.name || p.title || p.subTitle || 'Unknown',
+                tags: p.tags || p.category || {},
+                lat: latv,
+                lng: lngv,
+                raw: p
+            };
+        }).filter(it => it.lat !== null && it.lng !== null);
+
+        return items;
+    } catch (err) {
+        console.warn('Mappls detail request failed, falling back to Overpass:', err.message || err);
+        return [];
+    }
+}
+
 const buildAroundQuery = (lat, lon, radius, filters) => {
     // filters is an array of tag expressions; join them into unioned queries
     const parts = filters.map(f => `node(around:${radius},${lat},${lon})[${f}];way(around:${radius},${lat},${lon})[${f}];relation(around:${radius},${lat},${lon})[${f}];`);
@@ -37,6 +141,16 @@ out center;`;
 };
 
 const fetchCategory = async (lat, lon, radius, tagExpressions) => {
+    // If Mappls is configured, try it first for faster responses
+    try {
+        const mapplsItems = await fetchCategoryMappls(lat, lon, radius, tagExpressions);
+        if (Array.isArray(mapplsItems) && mapplsItems.length > 0) {
+            return mapplsItems;
+        }
+    } catch (e) {
+        // ignore and continue to Overpass
+    }
+
     const query = buildAroundQuery(lat, lon, radius, tagExpressions);
     try {
         const cacheKey = `q:${lat}:${lon}:${radius}:${tagExpressions.join('|')}`;
@@ -133,6 +247,14 @@ out;`;
 
 // Lightweight count-only query per category to reduce latency
 const fetchCountForCategory = async (lat, lon, radius, tagExpression) => {
+    // Try Mappls first (if configured) for a fast count
+    try {
+        const mp = await fetchCountForCategoryMappls(lat, lon, radius, tagExpression);
+        if (typeof mp === 'number') return mp;
+    } catch (e) {
+        // ignore and fallback to Overpass
+    }
+
     const query = `[
 out:json][timeout:10];
 (
