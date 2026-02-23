@@ -77,7 +77,7 @@ const purchasePlan = asyncHandler(async (req, res) => {
         res.status(201).json({
             Status: 1,
             Message: "Plan purchased successfully",
-            data: populatedPurchase,
+            planPurchase: populatedPurchase,
         });
 
     } catch (error) {
@@ -110,10 +110,10 @@ const getUserPurchasedPlans = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Purchased plans fetched successfully",
-            data: {
+            
                 totalPurchases: purchasedPlans.length,
                 plans: purchasedPlans,
-            },
+            
         });
 
     } catch (error) {
@@ -159,11 +159,11 @@ const getActivePlan = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Active plan fetched successfully",
-            data: {
+           
                 currentPlan: user.plan,
                 activePurchase: activePurchase || null,
                 isExpired: !activePurchase,
-            },
+        
         });
 
     } catch (error) {
@@ -234,7 +234,7 @@ const renewPlan = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Plan renewed successfully",
-            data: populatedPurchase,
+            planPurchase: populatedPurchase,
         });
 
     } catch (error) {
@@ -254,7 +254,7 @@ const checkExpiredPlans = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Expired plans checked and updated",
-            data: result,
+            result: result,
         });
 
     } catch (error) {
@@ -300,12 +300,12 @@ const getPurchaseHistory = asyncHandler(async (req, res) => {
         res.status(200).json({
             Status: 1,
             Message: "Purchase history fetched successfully",
-            data: {
+            
                 totalPurchases: totalCount,
                 totalPages: Math.ceil(totalCount / limit),
                 currentPage: page,
-                purchases,
-            },
+                planPurchases : purchases,
+            
         });
 
     } catch (error) {

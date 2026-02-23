@@ -18,7 +18,7 @@ const createUnit = asyncHandler(async (req, res) => {
     res.status(201).json({
         status:1,
         message: 'Unit created successfully',
-        data: unit
+        unit: unit
     });
 });
 
@@ -27,7 +27,7 @@ const getUnits = asyncHandler(async (req, res) => {
     res.status(200).json({
         status:1,
         count: units.length,
-        data: units
+        unit: units
     });
 });
 
@@ -42,7 +42,7 @@ const getUnit = asyncHandler(async (req, res) => {
 
     res.status(200).json({
         status:1,
-        data: unit
+        unit: unit
     });
 });
 
@@ -79,7 +79,7 @@ const updateUnit = asyncHandler(async (req, res) => {
     res.status(200).json({
         status:1,
         message: 'Unit updated successfully',
-        data: unit
+        unit: unit
     });
 });
 
@@ -97,7 +97,7 @@ const deleteUnit = asyncHandler(async (req, res) => {
     res.status(200).json({
         status:1,
         message: 'Unit deleted successfully',
-        data: {}
+        unit: {}
     });
 });
 

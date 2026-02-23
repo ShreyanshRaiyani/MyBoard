@@ -4,6 +4,8 @@ const Hoarding = require("../models/Hoarding");
 const User = require("../models/User");
 const { sendNotification, notificationTemplates } = require("./notificationController");
 const { uploadImageReturnUrl, deleteFromCloudinary } = require('./imageController');
+// const { findNearbyPlaces } = require('../middleware/mapplsService');
+const { findNearbyOverpass, findNearbyCounts } = require('../middleware/overpassService');
 
 // Helper function to handle multiple image uploads with indexed tracking
 const uploadHoardingImages = async (files, req) => {
@@ -14,12 +16,12 @@ const uploadHoardingImages = async (files, req) => {
         for (let index = 0; index < files.length; index++) {
             const file = files[index];
             const uniqueName = `hoarding_images/${Date.now()}_${Math.random().toString(36).substring(7)}_${file.originalname}`;
-            
+
             try {
                 const uploadRes = await uploadImageReturnUrl(file, uniqueName, { req });
-                
+
                 if (uploadRes && uploadRes.filename) {
-                    uploadedImages.push({ 
+                    uploadedImages.push({
                         url: uploadRes.path,
                         publicId: uploadRes.publicId,
                         filename: uploadRes.filename,
@@ -58,7 +60,7 @@ const cleanupUploadedImages = async (uploadedKeys) => {
 
 // CREATE HOARDING
 const createHoarding = asyncHandler(async (req, res) => {
-    
+
     const uploadedKeys = [];
 
     try {
@@ -73,7 +75,7 @@ const createHoarding = asyncHandler(async (req, res) => {
         } = req.body;
 
         console.log("Received hoarding creation request with body:", req.body);
-        
+
         if (!req.user || !req.user.id) {
             return res.status(401).json({
                 status: 0,
@@ -104,7 +106,7 @@ const createHoarding = asyncHandler(async (req, res) => {
                 message: "Only verified users can create hoardings"
             });
         }
-        
+
         // Validate required fields
         if (!hoardingName) {
             return res.status(400).json({
@@ -122,10 +124,10 @@ const createHoarding = asyncHandler(async (req, res) => {
         }
 
         // Validate location coordinates or address
-        const hasCoordinates = location.coordinates && 
-                             (location.coordinates.latitude || location.coordinates.longitude);
+        const hasCoordinates = location.coordinates &&
+            (location.coordinates.latitude || location.coordinates.longitude);
         const hasAddress = location.address;
-        
+
         if (!hasCoordinates && !hasAddress) {
             return res.status(400).json({
                 status: 0,
@@ -135,7 +137,7 @@ const createHoarding = asyncHandler(async (req, res) => {
 
 
         console.log("Request body validated successfully");
-        
+
         // Generate unique hoarding code
         const generateHoardingCode = async () => {
             const prefix = "HOA-";
@@ -158,23 +160,23 @@ const createHoarding = asyncHandler(async (req, res) => {
             area: Number(dimensions.width) * Number(dimensions.height)
         };
         console.log("Calculated dimensions:", dimensionsWithArea);
-       
+
         let images = [];
-        
+
         try {
             const imageFiles = [];
-            
+
             // Check for files from multer (attachImage middleware)
             if (req.uploadedFiles) {
                 const fileKeys = Object.keys(req.uploadedFiles).filter(key => key.startsWith('images['));
-                
+
                 // Sort them to maintain order (images[0], images[1], etc.)
                 fileKeys.sort((a, b) => {
                     const indexA = parseInt(a.match(/\[(\d+)\]/)[1]);
                     const indexB = parseInt(b.match(/\[(\d+)\]/)[1]);
                     return indexA - indexB;
                 });
-                
+
                 // Collect files in order
                 for (const key of fileKeys) {
                     const file = req.uploadedFiles[key];
@@ -185,11 +187,11 @@ const createHoarding = asyncHandler(async (req, res) => {
                     }
                 }
             }
-            
+
             if (imageFiles.length > 0) {
                 console.log(`Found ${imageFiles.length} image files to upload`);
                 const { uploadedImages, uploadedKeys: keys } = await uploadHoardingImages(imageFiles, req);
-                
+
                 // Map the uploaded images array to match your schema
                 images = uploadedImages.map((img, index) => ({
                     url: img.url,
@@ -198,9 +200,9 @@ const createHoarding = asyncHandler(async (req, res) => {
                     filename: img.filename,
                     uploadedAt: img.uploadedAt
                 }));
-                
+
                 uploadedKeys.push(...keys);
-                
+
             } else if (imageUrls) {
                 // If images are provided as URLs (from frontend)
                 if (Array.isArray(imageUrls)) {
@@ -215,9 +217,9 @@ const createHoarding = asyncHandler(async (req, res) => {
                     }];
                 }
             }
-            
+
             console.log(`Processed ${images.length} images:`, images);
-            
+
         } catch (uploadErr) {
             console.error('Failed to upload hoarding images:', uploadErr);
             // Cleanup any uploaded images
@@ -227,7 +229,7 @@ const createHoarding = asyncHandler(async (req, res) => {
                 message: "Failed to upload images"
             });
         }
-        
+
         // Prepare hoarding data with proper location structure based on model
         const hoardingData = {
             owner: req.user.id,
@@ -258,11 +260,11 @@ const createHoarding = asyncHandler(async (req, res) => {
         };
 
         console.log("Creating hoarding with data:", hoardingData);
-        
+
         // Create hoarding
         const hoarding = new Hoarding(hoardingData);
         await hoarding.save();
-        
+
         // Send notification to SuperAdmin for approval
         const superAdmins = await User.find({ userType: "SuperAdmin", isActive: true });
 
@@ -279,10 +281,10 @@ const createHoarding = asyncHandler(async (req, res) => {
             });
         }
 
-       
+
         // Fetch the created hoarding with populated fields
         const populatedHoarding = await Hoarding.findById(hoarding._id)
-        
+
         res.status(201).json({
             status: 1,
             message: "Hoarding created successfully. Waiting for admin approval.",
@@ -319,7 +321,7 @@ const createHoarding = asyncHandler(async (req, res) => {
         }
 
         console.error("Hoarding creation error:", error);
-        
+
         res.status(500).json({
             status: 0,
             message: "Server error",
@@ -328,10 +330,68 @@ const createHoarding = asyncHandler(async (req, res) => {
     }
 });
 
+// GET nearby POIs for a hoarding (radius in meters)
+const getNearbyPOIs = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const radius = parseInt(req.query.radius) || 1000;
+    const categories = (req.query.categories && req.query.categories.split(',')) || ['hospital', 'traffic_signal', 'mall', 'busstand', 'landmark'];
+
+    const hoarding = await Hoarding.findById(id);
+    if (!hoarding) {
+        return res.status(404).json({ status: 0, message: 'Hoarding not found' });
+    }
+
+    const lat = hoarding.location?.coordinates?.latitude;
+    const lon = hoarding.location?.coordinates?.longitude;
+
+    if (!lat || !lon) {
+        return res.status(400).json({ status: 0, message: 'Hoarding does not have coordinates' });
+    }
+
+    try {
+
+        // Final fallback: Overpass (OpenStreetMap)
+        try {
+            // Fast parallel counts
+            const counts = await findNearbyCounts(lat, lon, radius, categories);
+
+            // Only fetch detailed items for landmarks (if requested)
+            let landmarkItems = [];
+            if (categories.map(c => String(c).toLowerCase()).includes('landmark')) {
+                // fetch detailed landmarks (limited)
+                try {
+                    const overpassLand = await findNearbyOverpass(lat, lon, radius, ['landmark']);
+                    landmarkItems = (overpassLand.results && overpassLand.results.landmark) ? overpassLand.results.landmark.slice(0, 20) : overpassLand.suggestions || [];
+                } catch (landErr) {
+                    console.warn('Landmark detail fetch failed:', landErr.message || landErr);
+                }
+            }
+
+            return res.status(200).json({
+                status: 1,
+                hoardingId: id,
+                coordinates: { lat, lon },
+                radius,
+                counts,
+                landmark: {
+                    count: counts.landmark || landmarkItems.length || 0,
+                    items: landmarkItems
+                }
+            });
+        } catch (ovErr) {
+            console.error('Overpass fallback failed:', ovErr);
+            return res.status(500).json({ status: 0, message: 'Failed to fetch nearby places from any provider' });
+        }
+    } catch (err) {
+        console.error('Nearby POI error:', err);
+        res.status(500).json({ status: 0, message: 'Failed to fetch nearby places' });
+    }
+});
+
 // UPDATE HOARDING (Includes approval status update for SuperAdmin and status update for owner)
 const updateHoarding = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    
+
     // Track uploaded image keys for potential rollback
     const uploadedKeys = [];
     let oldImages = [];
@@ -376,7 +436,7 @@ const updateHoarding = asyncHandler(async (req, res) => {
             }
 
             updateData.approvalStatus = approvalStatus;
-            
+
             // If approving, set status to Active
             if (approvalStatus === "Approved") {
                 updateData.status = "Active";
@@ -438,7 +498,7 @@ const updateHoarding = asyncHandler(async (req, res) => {
             // Handle STATUS update (Active/Inactive/Booked)
             if (req.body.status) {
                 const { status } = req.body;
-                
+
                 // Validate status
                 if (!["Active", "Inactive", "Booked"].includes(status)) {
                     return res.status(400).json({
@@ -451,13 +511,13 @@ const updateHoarding = asyncHandler(async (req, res) => {
             }
 
             // Check if hoarding status is Inactive for detail updates
-            if (req.body.hoardingName || req.body.description || req.body.location || 
+            if (req.body.hoardingName || req.body.description || req.body.location ||
                 req.body.dimensions || req.body.type || req.uploadedFiles || req.body.images || req.body.pricePerDay) {
-                
+
                 if (hoarding.status !== "Inactive") {
                     // Cleanup any uploaded images if status is not Inactive
                     await cleanupUploadedImages(uploadedKeys);
-                    
+
                     return res.status(400).json({
                         status: 0,
                         message: "Can only update hoarding details when status is Inactive"
@@ -477,7 +537,7 @@ const updateHoarding = asyncHandler(async (req, res) => {
                 try {
                     if (req.uploadedFiles) {
                         const fileKeys = Object.keys(req.uploadedFiles).filter(key => key.startsWith('images['));
-                        
+
                         if (fileKeys.length > 0) {
                             // Sort to maintain order
                             fileKeys.sort((a, b) => {
@@ -485,10 +545,10 @@ const updateHoarding = asyncHandler(async (req, res) => {
                                 const indexB = parseInt(b.match(/\[(\d+)\]/)[1]);
                                 return indexA - indexB;
                             });
-                            
+
                             const files = fileKeys.map(key => req.uploadedFiles[key]).flat();
                             const { uploadedImages, uploadedKeys: keys } = await uploadHoardingImages(files, req);
-                            
+
                             updateData.images = uploadedImages.map((img, index) => ({
                                 url: img.url,
                                 caption: `Hoarding Image ${index + 1}`,
@@ -496,7 +556,7 @@ const updateHoarding = asyncHandler(async (req, res) => {
                                 filename: img.filename,
                                 uploadedAt: img.uploadedAt
                             }));
-                            
+
                             uploadedKeys.push(...keys);
                         }
                     } else if (req.body.images !== undefined) {
@@ -560,7 +620,7 @@ const updateHoarding = asyncHandler(async (req, res) => {
         if (Object.keys(updateData).length === 0) {
             // Cleanup any uploaded images if no updates
             await cleanupUploadedImages(uploadedKeys);
-            
+
             return res.status(400).json({
                 status: 0,
                 message: "No valid fields to update"
@@ -578,7 +638,7 @@ const updateHoarding = asyncHandler(async (req, res) => {
         if (updateData.images && Array.isArray(oldImages) && oldImages.length > 0) {
             const oldImageUrls = oldImages.map(img => img.url);
             const newImageUrls = updateData.images.map(img => img.url);
-            
+
             for (const oldImage of oldImages) {
                 // Only delete if the old image is not in the new images
                 if (!newImageUrls.includes(oldImage.url) && oldImage.publicId) {
@@ -652,7 +712,7 @@ const deleteHoarding = asyncHandler(async (req, res) => {
                 message: "Hoarding not found"
             });
         }
-        
+
         if (hoarding.isDeleted) {
             return res.status(400).json({
                 status: 0,
@@ -695,18 +755,18 @@ const deleteHoarding = asyncHandler(async (req, res) => {
             id,
             {
                 $set: {
-                    isDeleted: true,           
-                    deletedAt: new Date(),      
-                    deletedBy: req.user.id,     
-                    isActive: false,           
-                    status: "Inactive"      
+                    isDeleted: true,
+                    deletedAt: new Date(),
+                    deletedBy: req.user.id,
+                    isActive: false,
+                    status: "Inactive"
                 }
             },
             { new: true }
         ).populate("owner", "firstName lastName email mobileNumber")
-         .populate("location.city")
-         .populate("location.state")
-         .populate("location.country");
+            .populate("location.city")
+            .populate("location.state")
+            .populate("location.country");
 
 
         res.status(200).json({
@@ -898,21 +958,21 @@ const getHoardingById = asyncHandler(async (req, res) => {
 const getHoardingsByOwner = asyncHandler(async (req, res) => {
     try {
         const { page = 1, limit = 20, status, approvalStatus } = req.query;
-        
+
         const query = { owner: req.user.id };
-        
+
         if (status) query.status = status;
         if (approvalStatus) query.approvalStatus = approvalStatus;
-        
+
         const skip = (page - 1) * limit;
-        
+
         const hoardings = await Hoarding.find(query)
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(Number(limit));
-            
+
         const total = await Hoarding.countDocuments(query);
-        
+
         res.status(200).json({
             status: 1,
             count: hoardings.length,
@@ -937,5 +997,6 @@ module.exports = {
     updateHoarding,
     deleteHoarding,
     permanentDeleteHoarding,
-    getHoardingsByOwner
+    getHoardingsByOwner,
+    getNearbyPOIs
 };

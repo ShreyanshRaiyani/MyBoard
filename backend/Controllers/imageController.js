@@ -19,7 +19,7 @@ const uploadImage = async (req, res) => {
     const file = await uploadImageReturnUrl(req.file, filename);
     console.log("Uploaded file info:", file);
 
-    return res.json({ Status: 1, Message: "Upload successful", Data: { filename, url: file.path } });
+    return res.json({ Status: 1, Message: "Upload successful", file: { filename, url: file.path } });
   } catch (error) {
     console.error("uploadImage error:", error);
     return res.status(500).json({ Status: 0, Message: "Upload failed", error: error.message });
