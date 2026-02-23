@@ -168,7 +168,7 @@ const createWorkRequest = async (req, res) => {
     res.status(201).json({
       status:1,
       message: "Work request created successfully",
-      data: populatedRequest
+      workRequestorkerRequest: populatedRequest
     });
   } catch (error) {
     console.error("Create work request error:", error);
@@ -231,7 +231,7 @@ const getAllWorkRequests = async (req, res) => {
       total,
       totalPages: Math.ceil(total / limit),
       currentPage: Number(page),
-      data: workRequests
+      workRequests: workRequests
     });
   } catch (error) {
     console.error("Get all work requests error:", error);
@@ -275,7 +275,7 @@ const getWorkRequestById = async (req, res) => {
 
     res.status(200).json({
       status:1,
-      data: workRequest
+      workRequest: workRequest
     });
   } catch (error) {
     console.error("Get work request by ID error:", error);
@@ -553,7 +553,7 @@ const updateWorkRequest = async (req, res) => {
     res.status(200).json({
       status: 1,
       message: "Work request updated successfully",
-      data: updatedRequest
+      workerRequest: updatedRequest
     });
   } catch (error) {
     console.error("Update work request error:", error);
@@ -740,7 +740,7 @@ const reassignWorker = async (req, res) => {
     res.status(200).json({
       status:1,
       message: "Worker reassigned successfully",
-      data: updatedRequest
+      workerRequest: updatedRequest
     });
   } catch (error) {
     console.error("Reassign worker error:", error);

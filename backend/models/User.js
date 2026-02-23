@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema(
     whatsappNumber: { type: String },
     phone_code: { type: String },
     iso_code: { type: String },
-    profilepic: { type: String, default: "generaluserpic.png" },
+    profilepic: { type: String },
     emailverified: { type: Boolean, default: false },
     otp: { type: String, select: false },
     resettoken: { type: String },
@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema(
       country: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Country",
+      },
+      area: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Area",
       },
       state: {
         type: mongoose.Schema.Types.ObjectId,
@@ -46,10 +50,11 @@ const userSchema = new mongoose.Schema(
     hoardingLicense: {
       type: String,
     },
+    hoardingLicenseDocument: { type: String },
     business: {
       type: String,
     },
-    businessPhoneNumber: {
+    businessEmail: {
       type: String,
     },
     accountStatus: { //only Admin can Change
@@ -113,6 +118,11 @@ function autoPopulate(next) {
   }
   this.populate({
     path: "address.city",
+    select: "_id name"
+  });
+
+  this.populate({
+    path: "address.area",
     select: "_id name"
   });
 

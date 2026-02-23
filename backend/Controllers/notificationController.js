@@ -171,11 +171,11 @@ const getUserNotifications = async (req, res) => {
       unreadCount,
       totalPages: Math.ceil(total / limit),
       currentPage: Number(page),
-      data: notifications
+      notifications: notifications
     });
   } catch (error) {
     console.error("Get notifications error:", error);
-    res.status(500).json({
+     res.status(500).json({
       status: 0,
       message: "Server error",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -232,13 +232,14 @@ const markAsRead = async (req, res) => {
     res.status(200).json({
       status: 1,
       message: "Notification marked as read",
-      data: notification
+      notification: notification
     });
   } catch (error) {
     console.error("Mark as read error:", error);
     res.status(500).json({
       status: 0,
-      message: "Server error"
+      message: "Server error",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -373,7 +374,7 @@ const getNotificationById = async (req, res) => {
 
     res.status(200).json({
       status: 1,
-      data: notification
+      notification: notification
     });
   } catch (error) {
     console.error("Get notification by ID error:", error);
@@ -575,10 +576,10 @@ const getNotificationStats = async (req, res) => {
 
     res.status(200).json({
       status: 1,
-      data: {
-        stats,
+      
+        notification: stats,
         totals: totalStats[0] || { total: 0, read: 0, unread: 0 }
-      }
+      
     });
   } catch (error) {
     console.error("Get notification stats error:", error);
@@ -630,7 +631,7 @@ const updateNotification = async (req, res) => {
     res.status(200).json({
       status: 1,
       message: "Notification updated successfully",
-      data: updatedNotification
+      notification: updatedNotification
     });
   } catch (error) {
     console.error("Update notification error:", error);
