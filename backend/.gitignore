@@ -1,0 +1,12 @@
+.env
+.env.*
+
+node_modules/
+dist/
+
+package-lock.json
+yarn.lock
+# Logs and OS files
+logs/
+*.log
+.DS_Store
