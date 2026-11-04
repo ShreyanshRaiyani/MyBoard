@@ -20,6 +20,8 @@ import State from './pages/master/State.jsx';
 import City from './pages/master/City.jsx';
 import Area from './pages/master/Area.jsx';
 
+import Chatbot from './components/chatbot/Chatbot.jsx';
+
 function App() {
   const DashboardRouter = () => {
     const token = localStorage.getItem('token');
@@ -74,6 +76,9 @@ function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+
+      {/* Global MyBoard AI Chatbot */}
+      <Chatbot />
     </BrowserRouter>
   );
 }

@@ -14,8 +14,9 @@ const notificationRoutes = require('./routes/notificationRoutes.js');
 const notificationTrackingRoutes = require('./routes/notificationTrackingRoutes.js');
 const queueRoutes = require('./routes/queueRoutes.js');
 const workRequestRoutes = require('./routes/workRequestRoutes.js');
-const planRoutes = require('./routes/planRoutes.js')
-const purchasePlanRoutes = require('./routes/purchasePlanRoutes.js')
+const planRoutes = require('./routes/planRoutes.js');
+const purchasePlanRoutes = require('./routes/purchasePlanRoutes.js');
+const chatbotRoutes = require('./routes/chatbotRoutes.js');
 
 const app = express();
 
@@ -28,7 +29,6 @@ app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
-
 
 app.use("/uploads", express.static("uploads"));
 
@@ -48,6 +48,7 @@ app.use('/api/queue', queueRoutes);
 app.use('/api/workrequest', workRequestRoutes);
 app.use('/api/plan', planRoutes);
 app.use('/api/purchaseplan', purchasePlanRoutes);
+app.use('/api/chat', chatbotRoutes);
 
 // app.use('/admin/api/dashboard', dashboardRoutes);
 
@@ -63,6 +64,5 @@ app.use((err, req, res, next) => {
 	}
 	res.status(500).json({ Status: 0, error: err && err.message ? err.message : 'Internal Server Error' });
 });
-
 
 module.exports = app;
